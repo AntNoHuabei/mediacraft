@@ -769,9 +769,6 @@ function AppContent() {
             全部停止
           </Button>
           <div className="transport-spacer" />
-          <span className="chip mono" style={{ color: 'var(--text-faint)' }}>
-            MediaCraft Studio
-          </span>
           <button type="button" className="chip chip-link mono" onClick={copyQQGroup} title="复制群号，去 QQ 添加">
             QQ 交流群 {QQ_GROUP}
           </button>
