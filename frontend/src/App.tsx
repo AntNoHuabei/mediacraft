@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Popover, Select, Tabs, Tooltip, message } from 'antd'
+import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Popover, Select, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
@@ -915,15 +915,24 @@ function ImagePage({ models }: { models: Model[] }) {
     <div className="img-page">
       <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="创作与产物分页：像给 agent 下指令一样输入 prompt，画布实时出图。" />
       <div className="image-workspace">
-        <Tabs
-          className="image-tabs"
-          activeKey={tab}
-          onChange={(key) => setTab(key as 'create' | 'outputs')}
-          items={[
-            { key: 'create', label: '创作', children: createPane },
-            { key: 'outputs', label: `产物${outputs.length > 0 ? `（${outputs.length}）` : ''}`, children: outputsPane },
-          ]}
-        />
+        <div className="img-tabs">
+          <div className="img-tabbar">
+            <button type="button" className={tab === 'create' ? 'img-tab on' : 'img-tab'} onClick={() => setTab('create')}>
+              创作
+            </button>
+            <button
+              type="button"
+              className={tab === 'outputs' ? 'img-tab on' : 'img-tab'}
+              onClick={() => setTab('outputs')}
+            >
+              产物{outputs.length > 0 ? `（${outputs.length}）` : ''}
+            </button>
+            <span className="dim" style={{ fontSize: 11, marginLeft: 'auto' }}>
+              Enter 生成 · Shift+Enter 换行
+            </span>
+          </div>
+          <div className="img-panels">{tab === 'create' ? createPane : outputsPane}</div>
+        </div>
       </div>
     </div>
   )
