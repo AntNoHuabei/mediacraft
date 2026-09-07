@@ -484,7 +484,6 @@ function ImagePage({ models }: { models: Model[] }) {
   const [advanced, setAdvanced] = useState(false)
   const [view, setView] = useState<'canvas' | 'recent'>('recent')
   const [genProg, setGenProg] = useState<{ percent: number; phase: string; message: string } | null>(null)
-  const [genEv, setGenEv] = useState('') // 诊断：mc:gen 事件回显
   const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
   const [outputs, setOutputs] = useState<ImageOutput[]>([])
@@ -505,12 +504,8 @@ function ImagePage({ models }: { models: Model[] }) {
   // 生成进度：纯事件推送（后端解析 sd-server stdout → mc:gen）。
   useEffect(() => {
     return Events.On('mc:gen', (payload) => {
-      const d = payload as { status?: string; percent?: number; phase?: string; message?: string }
-      console.log('mc:gen', d)
-      setGenEv((prev) => {
-        const count = (Number(prev?.split(' ')[0]) || 0) + 1
-        return `${count} ${d.status}:${String(d.percent)} ${d.message ?? ''}`
-      })
+      // Wails v3 事件数据包在 ev.data 上（与 mc:install/mc:model 一致）。
+      const d = (payload as { data?: { status?: string; percent?: number; phase?: string; message?: string } })?.data
       if (!d) return
       if (d.status === 'done' || d.status === 'error') {
         setGenProg(null)
@@ -586,7 +581,6 @@ function ImagePage({ models }: { models: Model[] }) {
     setView('canvas')
     setLoading(true)
     setGenProg(null)
-    setGenEv('')
     try {
       const b64 = await ModelService.GenerateImage(JSON.stringify(payload))
       setCurrent({ dataUrl: `data:image/png;base64,${b64}` })
@@ -709,9 +703,7 @@ function ImagePage({ models }: { models: Model[] }) {
               <span className="canvas-spinner" />
               <p>{genProg && genProg.message ? genProg.message : '正在生成…'}</p>
               {genProg && genProg.percent > 0 && <p className="gen-pct mono">{genProg.percent}%</p>}
-              <p className="mono dim" style={{ fontSize: 11 }}>
-                {genEv ? `ev:${genEv}` : 'ev:（暂无事件）'}
-              </p>
+
             </div>
           ) : current ? (
             <img className="canvas" src={current.dataUrl} alt="生成结果" />
