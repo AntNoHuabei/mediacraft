@@ -713,6 +713,28 @@ function ImagePage({ models }: { models: Model[] }) {
         )}
       </section>
 
+      {/* 近期产物：画布与输入区之间 */}
+      <section className="panel create-recent">
+        <div className="history-head">
+          <span className="eyebrow">近期产物</span>
+          <span className="dim" style={{ fontSize: 12 }}>
+            {outputs.length ? `共 ${outputs.length} 张` : '暂无'}
+          </span>
+          {outputs.length > 0 && (
+            <Button size="small" type="text" style={{ marginLeft: 'auto' }} icon={<HistoryOutlined />} onClick={() => setTab('outputs')}>
+              查看全部
+            </Button>
+          )}
+        </div>
+        {outputs.length === 0 ? (
+          <div className="dim" style={{ fontSize: 12, padding: '2px 0 6px' }}>
+            生成后会自动出现在这里
+          </div>
+        ) : (
+          <div className="filmstrip">{recent.slice(0, 8).map((out) => renderThumb(out, false))}</div>
+        )}
+      </section>
+
       {/* 底部：类 Codex 输入区 */}
       <section className="panel composer">
         <Form form={form} onFinish={(v) => void generate(v)}>

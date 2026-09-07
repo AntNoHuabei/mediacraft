@@ -718,3 +718,9 @@ button.chip {
 .pane-fill { gap: 10px; }
 .composer { padding: 12px 14px 14px; margin: 0; }
 .composer-textarea { font-size: 15px; line-height: 1.6; }
+
+/* ---------------- 图片创作页 v5：近期产物居中条 ---------------- */
+.create-recent { padding: 10px 14px 12px; }
+.create-recent .history-head { margin-bottom: 8px; }
+.create-recent .filmstrip { padding-bottom: 2px; }
+.create-canvas { min-height: 260px; }
