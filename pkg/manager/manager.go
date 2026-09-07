@@ -72,6 +72,11 @@ func NewSupervisor(cat catalog.Catalog, opts Options) (*Supervisor, error) {
 	if opts.CacheDir == "" {
 		opts.CacheDir = filepath.Join(filepath.Dir(opts.RuntimesDir), "cache", "downloads")
 	}
+	if opts.Vendor == "" {
+		// 未显式指定时回退到运行时探测（环境变量/显卡名），
+		// 否则空值会被当成 "cpu"，GPU 机上模型→引擎判定全部落空。
+		opts.Vendor = runtime.CurrentVendor()
+	}
 	downloaderInst := downloader.NewHTTPDownloader(downloader.Options{
 		ConcurrentDownloads: 3,
 		MaxRetries:          3,
