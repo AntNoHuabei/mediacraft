@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tabs, Tooltip, message } from 'antd'
+import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Popover, Select, Tabs, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
@@ -477,6 +477,8 @@ function ImagePage({ models }: { models: Model[] }) {
   const imageModels = models.filter((m) => m.type === 'image-generation')
   const [form] = Form.useForm()
   const selectedModel = Form.useWatch('model', form) as string | undefined
+  const stepsValue = Form.useWatch('steps', form) as number | undefined
+  const seedValue = Form.useWatch('seed', form) as number | undefined
   const [aspect, setAspect] = useState('1:1')
   const [loading, setLoading] = useState(false)
   const [advanced, setAdvanced] = useState(false)
@@ -819,44 +821,52 @@ function ImagePage({ models }: { models: Model[] }) {
               </span>
             ) : null}
 
-            <Button
-              className="opt-toggle"
-              size="small"
-              type={advanced ? 'primary' : 'default'}
-              onClick={() => setAdvanced((v) => !v)}
+            <Popover
+              placement="top"
+              trigger="click"
+              open={advanced}
+              onOpenChange={setAdvanced}
+              content={
+                <div className="adv-pop">
+                  <span className="opt-label">步数</span>
+                  <InputNumber
+                    size="small"
+                    min={1}
+                    max={100}
+                    value={stepsValue ?? 8}
+                    onChange={(v) => form.setFieldsValue({ steps: v ?? 8 })}
+                    style={{ width: 110 }}
+                  />
+                  <span className="opt-label" style={{ marginLeft: 10 }}>
+                    种子
+                  </span>
+                  <InputNumber
+                    size="small"
+                    min={1}
+                    max={9007199254740991}
+                    precision={0}
+                    placeholder="留空=随机"
+                    value={seedValue}
+                    onChange={(v) => form.setFieldsValue({ seed: v ?? undefined })}
+                    style={{ width: 170 }}
+                  />
+                  <div className="dim" style={{ fontSize: 11, marginTop: 4, width: '100%' }}>
+                    固定 seed 可精确重现同一张图
+                  </div>
+                </div>
+              }
             >
-              {advanced ? '收起高级 ▴' : '高级参数 ▾'}
-            </Button>
+              <Button className="opt-toggle" size="small" type={advanced ? 'primary' : 'default'}>
+                高级参数 {advanced ? '▴' : '▾'}
+              </Button>
+            </Popover>
             <span style={{ flex: 1 }} />
             <Button type='primary' htmlType='submit' loading={loading} icon={<PictureOutlined />}>
               生成
             </Button>
           </div>
 
-          {advanced ? (
-            <div className="composer-advanced">
-              <span className="opt-label">步数</span>
-              <Form.Item name="steps" initialValue={8} style={{ marginBottom: 0 }}>
-                <InputNumber size="small" min={1} max={100} style={{ width: 104 }} />
-              </Form.Item>
-              <span className="opt-label" style={{ marginLeft: 10 }}>
-                种子
-              </span>
-              <Form.Item name="seed" style={{ marginBottom: 0 }}>
-                <InputNumber
-                  size="small"
-                  min={1}
-                  max={9007199254740991}
-                  precision={0}
-                  placeholder="留空=随机"
-                  style={{ width: 160 }}
-                />
-              </Form.Item>
-              <span className="dim" style={{ fontSize: 11 }}>
-                固定 seed 可精确重现同一张图
-              </span>
-            </div>
-          ) : null}
+
         </Form>
       </section>
     </div>

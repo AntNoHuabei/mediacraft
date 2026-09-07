@@ -724,3 +724,6 @@ button.chip {
 .create-recent .history-head { margin-bottom: 8px; }
 .create-recent .filmstrip { padding-bottom: 2px; }
 .create-canvas { min-height: 260px; }
+
+/* ---------------- 高级参数 Popover ---------------- */
+.adv-pop { min-width: 340px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 2px; }
