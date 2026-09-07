@@ -6,20 +6,29 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/jpeg"
 	"io"
 	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	goruntime "runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	_ "image/png"
 
 	"github.com/AntNoHuabei/mediacraft/catalog"
 	"github.com/AntNoHuabei/mediacraft/pkg/manager"
@@ -62,6 +71,7 @@ type ImageRequest struct {
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
 	Steps  int    `json:"steps"`
+	Seed   int64  `json:"seed,omitempty"` // <=0 时由服务端随机
 }
 
 // laxInt 宽容整数：接受 JSON 数字、数字字符串、空字符串或 null。
@@ -125,6 +135,7 @@ func parseImageRequest(request string) (ImageRequest, error) {
 		Width  laxInt `json:"width"`
 		Height laxInt `json:"height"`
 		Steps  laxInt `json:"steps"`
+		Seed   laxInt `json:"seed"`
 	}
 	if err := json.Unmarshal([]byte(request), &lax); err != nil {
 		return out, fmt.Errorf("invalid image request json: %w", err)
@@ -134,6 +145,7 @@ func parseImageRequest(request string) (ImageRequest, error) {
 	out.Width = int(lax.Width)
 	out.Height = int(lax.Height)
 	out.Steps = int(lax.Steps)
+	out.Seed = int64(lax.Seed)
 	return out, nil
 }
 
@@ -556,13 +568,17 @@ func buildImageRequestBody(in ImageRequest, params map[string]any) map[string]an
 	if steps <= 0 {
 		steps = paramInt(params, "default_steps", 9)
 	}
+	seed := int64(-1)
+	if in.Seed > 0 {
+		seed = in.Seed
+	}
 	body := map[string]any{
 		"prompt":          in.Prompt,
 		"negative_prompt": "",
 		"width":           width,
 		"height":          height,
 		"steps":           steps,
-		"seed":            int64(-1),
+		"seed":            seed,
 		"batch_size":      1,
 	}
 	if cfg, ok := paramNumber(params, "cfg_scale"); ok && cfg > 0 {
@@ -571,7 +587,201 @@ func buildImageRequestBody(in ImageRequest, params map[string]any) map[string]an
 	return body
 }
 
-// GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img）。
+// ImageOutput 产物历史条目（磁盘 outputs 目录持久化，png + meta + 缩略图）。
+type ImageOutput struct {
+	ID        string  `json:"id"`
+	Model     string  `json:"model"`
+	Prompt    string  `json:"prompt"`
+	Width     int     `json:"width"`
+	Height    int     `json:"height"`
+	Steps     int     `json:"steps"`
+	CfgScale  float64 `json:"cfgScale"`
+	Seed      int64   `json:"seed"`
+	CreatedAt int64   `json:"createdAt"` // unix 毫秒
+	Thumb     string  `json:"thumb"`     // base64 JPEG 缩略图
+}
+
+type ImageOutputDetail struct {
+	Image  string      `json:"image"` // base64 PNG
+	Output ImageOutput `json:"output"`
+}
+
+// genParams 本次生成实际使用的参数快照。
+type genParams struct {
+	Model   string
+	Prompt  string
+	Width   int
+	Height  int
+	Steps   int
+	Cfg     float64
+	Seed    int64
+	Created int64
+}
+
+var outputIDPattern = regexp.MustCompile(`^[0-9a-f]{1,32}$`)
+
+func (s *ModelService) outputsDir() string {
+	return filepath.Join(s.root, "outputs")
+}
+
+// imageThumb 把 png 字节缩成 JPEG 缩略图（最长边 320px，最近邻 + jpeg 软边）。
+func imageThumb(pngBytes []byte, maxSide int) ([]byte, error) {
+	src, _, err := image.Decode(bytes.NewReader(pngBytes))
+	if err != nil {
+		return nil, err
+	}
+	bounds := src.Bounds()
+	if bounds.Dx() <= 0 || bounds.Dy() <= 0 {
+		return nil, fmt.Errorf("empty image bounds")
+	}
+	w, h := bounds.Dx(), bounds.Dy()
+	scale := float64(maxSide) / float64(max(w, h))
+	if scale >= 1 {
+		scale = 1
+	}
+	tw, th := int(float64(w)*scale), int(float64(h)*scale)
+	if tw < 1 {
+		tw = 1
+	}
+	if th < 1 {
+		th = 1
+	}
+	thumb := image.NewNRGBA(image.Rect(0, 0, tw, th))
+	for y := 0; y < th; y++ {
+		sy := y * h / th
+		for x := 0; x < tw; x++ {
+			sx := x * w / tw
+			thumb.SetNRGBA(x, y, color.NRGBAModel.Convert(src.At(bounds.Min.X+sx, bounds.Min.Y+sy)).(color.NRGBA))
+		}
+	}
+	var buf bytes.Buffer
+	if err := jpeg.Encode(&buf, thumb, &jpeg.Options{Quality: 82}); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// saveImageOutput 把一次生成结果落盘并返回条目。
+func (s *ModelService) saveImageOutput(g genParams, imageB64 string) (*ImageOutput, error) {
+	raw, err := base64.StdEncoding.DecodeString(imageB64)
+	if err != nil {
+		return nil, fmt.Errorf("decode generated image: %w", err)
+	}
+	randBytes := make([]byte, 6)
+	if _, err := rand.Read(randBytes); err != nil {
+		return nil, err
+	}
+	id := hex.EncodeToString(randBytes)
+	dir := s.outputsDir()
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	thumb, err := imageThumb(raw, 320)
+	if err != nil {
+		s.log.Warn("build output thumbnail failed, skipping thumb", "error", err)
+		thumb = nil
+	}
+	out := ImageOutput{
+		ID: id, Model: g.Model, Prompt: g.Prompt,
+		Width: g.Width, Height: g.Height, Steps: g.Steps,
+		CfgScale: g.Cfg, Seed: g.Seed, CreatedAt: g.Created,
+	}
+	if err := os.WriteFile(filepath.Join(dir, id+".png"), raw, 0644); err != nil {
+		return nil, err
+	}
+	if thumb != nil {
+		if err := os.WriteFile(filepath.Join(dir, id+".t.jpg"), thumb, 0644); err != nil {
+			s.log.Warn("write output thumb failed", "id", id, "error", err)
+		}
+		out.Thumb = base64.StdEncoding.EncodeToString(thumb)
+	}
+	meta, _ := json.Marshal(out)
+	if err := os.WriteFile(filepath.Join(dir, id+".meta.json"), meta, 0644); err != nil {
+		_ = os.Remove(filepath.Join(dir, id+".png"))
+		return nil, err
+	}
+	return &out, nil
+}
+
+// readOutputMeta 读取单个产物 meta；thumbBase64 附带缩略图（可选）。
+func readOutputMeta(dir, id string, withThumb bool) (ImageOutput, bool) {
+	metaPath := filepath.Join(dir, id+".meta.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return ImageOutput{}, false
+	}
+	var out ImageOutput
+	if err := json.Unmarshal(data, &out); err != nil {
+		return ImageOutput{}, false
+	}
+	if withThumb && out.Thumb == "" {
+		if t, err := os.ReadFile(filepath.Join(dir, id+".t.jpg")); err == nil {
+			out.Thumb = base64.StdEncoding.EncodeToString(t)
+		}
+	}
+	return out, true
+}
+
+// ListImageOutputs 列出全部产物（新→旧）。
+func (s *ModelService) ListImageOutputs() ([]ImageOutput, error) {
+	dir := s.outputsDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []ImageOutput{}, nil
+		}
+		return nil, err
+	}
+	var list []ImageOutput
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".meta.json") {
+			continue
+		}
+		id := strings.TrimSuffix(name, ".meta.json")
+		if out, ok := readOutputMeta(dir, id, true); ok {
+			list = append(list, out)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].CreatedAt == list[j].CreatedAt {
+			return list[i].ID > list[j].ID
+		}
+		return list[i].CreatedAt > list[j].CreatedAt
+	})
+	return list, nil
+}
+
+// GetImageOutput 取单个产物完整图 + 元信息。
+func (s *ModelService) GetImageOutput(id string) (ImageOutputDetail, error) {
+	if !outputIDPattern.MatchString(id) {
+		return ImageOutputDetail{}, fmt.Errorf("invalid output id")
+	}
+	dir := s.outputsDir()
+	out, ok := readOutputMeta(dir, id, false)
+	if !ok {
+		return ImageOutputDetail{}, fmt.Errorf("output %q not found", id)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, id+".png"))
+	if err != nil {
+		return ImageOutputDetail{}, err
+	}
+	return ImageOutputDetail{Image: base64.StdEncoding.EncodeToString(raw), Output: out}, nil
+}
+
+// DeleteImageOutput 删除一条产物。
+func (s *ModelService) DeleteImageOutput(id string) error {
+	if !outputIDPattern.MatchString(id) {
+		return fmt.Errorf("invalid output id")
+	}
+	dir := s.outputsDir()
+	for _, suffix := range []string{".png", ".t.jpg", ".meta.json"} {
+		_ = os.Remove(filepath.Join(dir, id+suffix))
+	}
+	return nil
+}
+
+// GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img），成功后把产物存档到 outputs。
 func (s *ModelService) GenerateImage(request string) (string, error) {
 	input, err := parseImageRequest(request)
 	if err != nil {
@@ -585,7 +795,8 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 		return "", err
 	}
 	params := s.modelParameters(input.Model)
-	body, _ := json.Marshal(buildImageRequestBody(input, params))
+	bodyMap := buildImageRequestBody(input, params)
+	body, _ := json.Marshal(bodyMap)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/sdapi/v1/txt2img", port), bytes.NewReader(body))
@@ -604,12 +815,50 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 	}
 	var result struct {
 		Images []string `json:"images"`
+		Info   string   `json:"info"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return "", err
 	}
 	if len(result.Images) == 0 {
 		return "", fmt.Errorf("sd-server returned no image")
+	}
+	// 记录实际执行参数（info 里的 seed 等为服务端真实值）。
+	seed := int64(-1)
+	cfg := 0.0
+	if value, ok := bodyMap["seed"]; ok {
+		if n, ok2 := value.(int64); ok2 {
+			seed = n
+		}
+	}
+	if value, ok := bodyMap["cfg_scale"]; ok {
+		cfg, _ = value.(float64)
+	}
+	if strings.TrimSpace(result.Info) != "" {
+		var info struct {
+			Seed int64   `json:"seed"`
+			Cfg  float64 `json:"cfg_scale"`
+		}
+		if err := json.Unmarshal([]byte(result.Info), &info); err == nil {
+			if info.Seed >= 0 {
+				seed = info.Seed
+			}
+			if info.Cfg > 0 {
+				cfg = info.Cfg
+			}
+		}
+	}
+	gen := genParams{
+		Model: input.Model, Prompt: input.Prompt,
+		Width:   bodyMap["width"].(int),
+		Height:  bodyMap["height"].(int),
+		Steps:   bodyMap["steps"].(int),
+		Cfg:     cfg,
+		Seed:    seed,
+		Created: time.Now().UnixMilli(),
+	}
+	if _, err := s.saveImageOutput(gen, result.Images[0]); err != nil {
+		s.log.Warn("persist image output failed", "error", err)
 	}
 	return result.Images[0], nil
 }

@@ -14,11 +14,11 @@ func TestParseImageRequestNumbers(t *testing.T) {
 
 func TestParseImageRequestStringNumbers(t *testing.T) {
 	// antd 输入框清空/输入时数字可能以字符串或 null 进入。
-	in, err := parseImageRequest(`{"model":"zimage-turbo","prompt":"a cat","width":"768","height":null,"steps":""}`)
+	in, err := parseImageRequest(`{"model":"zimage-turbo","prompt":"a cat","width":"768","height":null,"steps":"","seed":"12345"}`)
 	if err != nil {
 		t.Fatalf("string numbers: %v", err)
 	}
-	if in.Width != 768 || in.Height != 0 || in.Steps != 0 {
+	if in.Width != 768 || in.Height != 0 || in.Steps != 0 || in.Seed != 12345 {
 		t.Fatalf("unexpected values: %+v", in)
 	}
 }
@@ -92,6 +92,16 @@ func TestBuildImageRequestBodyExplicitStepsAndNoCfg(t *testing.T) {
 	}
 	if body["width"] != 512 {
 		t.Fatalf("unexpected width: %#v", body["width"])
+	}
+	if body["seed"] != int64(-1) {
+		t.Fatalf("random seed expected by default, got %#v", body["seed"])
+	}
+}
+
+func TestBuildImageRequestBodyFixedSeed(t *testing.T) {
+	body := buildImageRequestBody(ImageRequest{Model: "m", Prompt: "p", Steps: 8, Seed: 20260907}, nil)
+	if body["seed"] != int64(20260907) {
+		t.Fatalf("fixed seed expected, got %#v", body["seed"])
 	}
 }
 

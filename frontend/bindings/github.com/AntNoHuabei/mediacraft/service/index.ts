@@ -8,6 +8,8 @@ export {
 
 export type {
     ASRResult,
+    ImageOutput,
+    ImageOutputDetail,
     ModelInfo,
     RuntimeInfo
 } from "./models.js";

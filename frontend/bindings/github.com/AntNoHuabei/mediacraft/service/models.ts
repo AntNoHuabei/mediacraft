@@ -7,6 +7,38 @@ export interface ASRResult {
 }
 
 /**
+ * ImageOutput 产物历史条目（磁盘 outputs 目录持久化，png + meta + 缩略图）。
+ */
+export interface ImageOutput {
+    "id": string;
+    "model": string;
+    "prompt": string;
+    "width": number;
+    "height": number;
+    "steps": number;
+    "cfgScale": number;
+    "seed": number;
+
+    /**
+     * unix 毫秒
+     */
+    "createdAt": number;
+
+    /**
+     * base64 JPEG 缩略图
+     */
+    "thumb": string;
+}
+
+export interface ImageOutputDetail {
+    /**
+     * base64 PNG
+     */
+    "image": string;
+    "output": ImageOutput;
+}
+
+/**
  * ModelInfo 模型展示信息（与前端绑定契约一致）。
  */
 export interface ModelInfo {

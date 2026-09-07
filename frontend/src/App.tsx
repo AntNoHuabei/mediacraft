@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Select, Tooltip, message } from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
   CloudDownloadOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  HistoryOutlined,
   MoonOutlined,
   PictureOutlined,
   ReloadOutlined,
@@ -441,16 +445,57 @@ function AspectGlyph({ width, height }: ImageSize) {
   )
 }
 
+type ImageOutput = {
+  id: string
+  model: string
+  prompt: string
+  width: number
+  height: number
+  steps: number
+  cfgScale: number
+  seed: number
+  createdAt: number
+  thumb: string
+}
+
+type ImageOutputDetail = {
+  image: string
+  output: ImageOutput
+}
+
+type CurrentImage = {
+  dataUrl: string
+  meta?: ImageOutput
+}
+
+const fmtClock = (ms: number): string =>
+  new Date(ms).toLocaleString('zh-CN', { hour12: false, month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+
+const thumbSrc = (thumb: string): string => `data:image/jpeg;base64,${thumb}`
+
 function ImagePage({ models }: { models: Model[] }) {
   const imageModels = models.filter((m) => m.type === 'image-generation')
-  const [image, setImage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [aspect, setAspect] = useState('1:1')
   const [form] = Form.useForm()
   const selectedModel = Form.useWatch('model', form) as string | undefined
+  const [aspect, setAspect] = useState('1:1')
+  const [loading, setLoading] = useState(false)
+  const [outputs, setOutputs] = useState<ImageOutput[]>([])
+  const [allMode, setAllMode] = useState(false)
+  const [current, setCurrent] = useState<CurrentImage | null>(null)
 
-  // 选中模型后按清单默认参数（default_width/height/steps）填充表单，
-  // 保证前端默认值与 manifest / Go 侧兜底默认保持一致。
+  const loadOutputs = useCallback(async () => {
+    try {
+      const list = await ModelService.ListImageOutputs()
+      setOutputs(Array.isArray(list) ? list : [])
+    } catch {
+      // 历史加载失败不阻塞工作台
+    }
+  }, [])
+  useEffect(() => {
+    void loadOutputs()
+  }, [loadOutputs])
+
+  // 选中模型后按清单默认参数（default_width/height/steps）填充表单。
   useEffect(() => {
     if (!selectedModel) return
     const model = imageModels.find((item) => item.name === selectedModel)
@@ -465,9 +510,13 @@ function ImagePage({ models }: { models: Model[] }) {
     }
     const steps = paramNum(p.default_steps)
     if (steps) form.setFieldsValue({ steps: Math.round(steps) })
-    // 只在切换模型时套用默认参数，不覆盖用户后续手动调整。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedModel])
+
+  const applySize = (width: number, height: number) => {
+    form.setFieldsValue({ width, height })
+    setAspect(aspectKeyOf(width, height))
+  }
 
   const pickAspect = (key: string) => {
     setAspect(key)
@@ -476,12 +525,13 @@ function ImagePage({ models }: { models: Model[] }) {
     if (preset) form.setFieldsValue({ width: preset.size.width, height: preset.size.height })
   }
 
-  const generate = (values: {
+  const generate = async (values: {
     model: string
     prompt: string
     width?: number
     height?: number
     steps?: number
+    seed?: number
   }) => {
     const model = imageModels.find((item) => item.name === values.model)
     if (!model?.installed) {
@@ -490,92 +540,270 @@ function ImagePage({ models }: { models: Model[] }) {
     }
     const width = roundTo64(Number(values.width) || 1024)
     const height = roundTo64(Number(values.height) || 1024)
-    const steps = Math.max(1, Math.round(Number(values.steps) || 9))
+    const steps = Math.max(1, Math.round(Number(values.steps) || 8))
+    const seed = Math.floor(Number(values.seed))
     if (width !== Number(values.width) || height !== Number(values.height)) {
-      form.setFieldsValue({ width, height })
-      setAspect(aspectKeyOf(width, height))
+      applySize(width, height)
       message.info(`尺寸已对齐到 64 的倍数：${width} × ${height}`)
     }
+    const payload: Record<string, unknown> = {
+      model: values.model,
+      prompt: values.prompt,
+      width,
+      height,
+      steps,
+    }
+    if (Number.isFinite(seed) && seed > 0) payload.seed = seed
     setLoading(true)
-    ModelService.GenerateImage(JSON.stringify({ model: values.model, prompt: values.prompt, width, height, steps }))
-      .then((result) => {
-        setImage(result)
-        message.success('图片生成完成')
-      })
-      .catch((error) => message.error(String(error)))
-      .finally(() => setLoading(false))
+    try {
+      const b64 = await ModelService.GenerateImage(JSON.stringify(payload))
+      setCurrent({ dataUrl: `data:image/png;base64,${b64}` })
+      const list = await ModelService.ListImageOutputs()
+      setOutputs(Array.isArray(list) ? list : [])
+      const top = list?.[0]
+      if (top) setCurrent({ dataUrl: `data:image/png;base64,${b64}`, meta: top })
+      message.success('图片生成完成，已存入产物历史')
+    } catch (error) {
+      message.error(String(error))
+    } finally {
+      setLoading(false)
+    }
   }
+
+  const pickOutput = async (out: ImageOutput) => {
+    try {
+      const detail: ImageOutputDetail = await ModelService.GetImageOutput(out.id)
+      setCurrent({ dataUrl: `data:image/png;base64,${detail.image}`, meta: detail.output })
+    } catch (error) {
+      message.error(String(error))
+    }
+  }
+
+  const removeOutput = async (out: ImageOutput) => {
+    try {
+      await ModelService.DeleteImageOutput(out.id)
+      if (current?.meta?.id === out.id) setCurrent(null)
+      setOutputs((prev) => prev.filter((item) => item.id !== out.id))
+    } catch (error) {
+      message.error(String(error))
+    }
+  }
+
+  const reproduce = (out: ImageOutput) => {
+    const model = imageModels.find((item) => item.name === out.model)
+    if (!model?.installed) {
+      message.warning('该产物所用模型未安装，无法重现')
+      return
+    }
+    applySize(roundTo64(out.width), roundTo64(out.height))
+    form.setFieldsValue({ model: out.model, prompt: out.prompt, steps: out.steps, seed: out.seed })
+    message.success('参数已填回，可直接再次生成')
+  }
+
+  const copyPrompt = (prompt: string) => {
+    navigator.clipboard?.writeText(prompt).then(
+      () => message.success('提示词已复制'),
+      () => message.info(prompt),
+    )
+  }
+
+  const downloadCurrent = () => {
+    if (!current) return
+    const a = document.createElement('a')
+    a.href = current.dataUrl
+    a.download = `mediacraft-${current.meta?.id ?? Date.now()}.png`
+    a.click()
+  }
+
+  const modelName = (name: string): string => imageModels.find((m) => m.name === name)?.displayName ?? name
+  const meta = current?.meta
+
+  const renderThumb = (out: ImageOutput, large: boolean) => {
+    const selected = current?.meta?.id === out.id
+    return (
+      <div className={large ? 'thumb thumb-lg' : `thumb${selected ? ' sel' : ''}`} key={out.id} title={out.prompt}>
+        <button type="button" className="thumb-btn" onClick={() => void pickOutput(out)}>
+          <img src={thumbSrc(out.thumb)} alt={out.prompt} loading="lazy" />
+        </button>
+        <div className="thumb-cap">
+          {out.width}×{out.height} · {out.steps} 步
+        </div>
+        <span className="thumb-del">
+          <Popconfirm title="删除该产物？" okText="删除" cancelText="取消" onConfirm={() => void removeOutput(out)}>
+            <Button type="text" size="small" icon={<DeleteOutlined />} onClick={(e) => e.stopPropagation()} />
+          </Popconfirm>
+        </span>
+      </div>
+    )
+  }
+
+  const recent = outputs.slice(0, 12)
 
   return (
     <>
-      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片处理" desc="文生图：结果回到暗房画布回放。" />
-      <section className="panel" style={{ padding: 18, maxWidth: 780 }}>
-        <Form layout="vertical" form={form} onFinish={generate}>
-          <Form.Item label="模型" name="model" rules={[{ required: true, message: '请选择图片模型' }]}>
-            <Select
-              placeholder="选择已装载的图片模型"
-              options={imageModels.map((m) => ({
-                value: m.name,
-                label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
-                disabled: !m.installed,
-              }))}
-            />
-          </Form.Item>
-          <Form.Item label="提示词" name="prompt" rules={[{ required: true, message: '请输入提示词' }]}>
-            <Input.TextArea rows={5} placeholder="描述你想生成的画面" />
-          </Form.Item>
-          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <Form.Item label="画幅" style={{ marginBottom: aspect === 'custom' ? undefined : 24 }}>
+      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="文生图双栏工作台：左侧调参，右侧画布，产物自动存档回看。" />
+
+      <div className="wb">
+        {/* ---- 左：参数 ---- */}
+        <section className="panel wb-params">
+          <Form layout="vertical" form={form} onFinish={(v) => void generate(v)}>
+            <div className="group-label">输入</div>
+            <Form.Item label="模型" name="model" rules={[{ required: true, message: '请选择图片模型' }]}>
               <Select
-                style={{ width: 230 }}
-                value={aspect}
-                onChange={pickAspect}
-                options={[
-                  ...ASPECT_PRESETS.map((p) => ({
-                    value: p.key,
-                    label: (
-                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        <AspectGlyph width={p.size.width} height={p.size.height} />
-                        <span>
-                          {p.label} · {p.size.width} × {p.size.height}
-                        </span>
-                      </span>
-                    ),
-                  })),
-                  { value: 'custom', label: '自定义尺寸' },
-                ]}
+                placeholder="选择已装载的图片模型"
+                options={imageModels.map((m) => ({
+                  value: m.name,
+                  label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
+                  disabled: !m.installed,
+                }))}
               />
             </Form.Item>
-            {aspect === 'custom' ? (
-              <>
-                <Form.Item label="宽度" name="width" initialValue={1024}>
-                  <InputNumber min={64} max={2048} step={64} style={{ width: 130 }} />
-                </Form.Item>
-                <Form.Item label="高度" name="height" initialValue={1024}>
-                  <InputNumber min={64} max={2048} step={64} style={{ width: 130 }} />
-                </Form.Item>
-              </>
-            ) : null}
-            <Form.Item label="步数" name="steps" initialValue={9}>
-              <InputNumber min={1} max={100} style={{ width: 130 }} />
+            <Form.Item label="提示词" name="prompt" rules={[{ required: true, message: '请输入提示词' }]}>
+              <Input.TextArea rows={6} placeholder="描述你想生成的画面…" />
             </Form.Item>
-          </div>
-          <Button type="primary" htmlType="submit" loading={loading} icon={<PictureOutlined />}>
-            生成图片
-          </Button>
-        </Form>
-      </section>
-      {image && (
-        <section className="panel" style={{ padding: 16, maxWidth: 900 }}>
-          <div className="eyebrow" style={{ marginBottom: 10 }}>
-            OUTPUT
-          </div>
-          <img className="canvas" src={`data:image/png;base64,${image}`} alt="生成结果" />
+
+            <div className="group-label">尺寸</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <Form.Item label="画幅" style={{ marginBottom: aspect === 'custom' ? 8 : 4 }}>
+                <Select
+                  style={{ width: 210 }}
+                  value={aspect}
+                  onChange={pickAspect}
+                  options={[
+                    ...ASPECT_PRESETS.map((p) => ({
+                      value: p.key,
+                      label: (
+                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                          <AspectGlyph width={p.size.width} height={p.size.height} />
+                          <span>
+                            {p.label} · {p.size.width} × {p.size.height}
+                          </span>
+                        </span>
+                      ),
+                    })),
+                    { value: 'custom', label: '自定义尺寸' },
+                  ]}
+                />
+              </Form.Item>
+              {aspect === 'custom' ? (
+                <>
+                  <Form.Item label="宽" name="width" initialValue={1024}>
+                    <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
+                  </Form.Item>
+                  <Form.Item label="高" name="height" initialValue={1024}>
+                    <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
+                  </Form.Item>
+                </>
+              ) : null}
+            </div>
+
+            <div className="group-label">采样</div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <Form.Item label="步数" name="steps" initialValue={8}>
+                <InputNumber min={1} max={100} style={{ width: 100 }} />
+              </Form.Item>
+              <Form.Item label="种子（留空=随机）" name="seed" style={{ flex: 1 }}>
+                <InputNumber min={1} max={9007199254740991} precision={0} style={{ width: '100%' }} placeholder="随机" />
+              </Form.Item>
+            </div>
+
+            <Button type="primary" block size="large" htmlType="submit" loading={loading} icon={<PictureOutlined />} style={{ marginTop: 4 }}>
+              生成图片
+            </Button>
+          </Form>
         </section>
-      )}
+
+        {/* ---- 右：画布 ---- */}
+        <section className="panel wb-canvas">
+          <div className="canvas-head">
+            <div className="eyebrow">CANVAS · 画布</div>
+            {meta && (
+              <span className="meta-line mono" style={{ marginLeft: 'auto' }}>
+                {modelName(meta.model)} · {meta.width}×{meta.height} · {meta.steps} 步
+                {meta.cfgScale > 0 ? ` · cfg ${meta.cfgScale}` : ''}
+                {meta.seed > 0 ? ` · seed ${meta.seed}` : ''} · {fmtClock(meta.createdAt)}
+              </span>
+            )}
+          </div>
+
+          <div className="canvas-stage">
+            {loading ? (
+              <div className="canvas-empty">
+                <span className="big canvas-spinner" />
+                <p>正在生成…（首次约需十几秒）</p>
+              </div>
+            ) : current ? (
+              <img className="canvas" src={current.dataUrl} alt="生成结果" />
+            ) : (
+              <div className="canvas-empty">
+                <span className="big">
+                  <PictureOutlined />
+                </span>
+                <p>在左侧写好提示词，点「生成图片」</p>
+                <p className="dim">每次出图会自动存档，可从底部历史点选回看</p>
+              </div>
+            )}
+          </div>
+
+          {current && (
+            <div className="canvas-actions">
+              <Button size="small" icon={<DownloadOutlined />} onClick={downloadCurrent}>
+                下载
+              </Button>
+              {meta ? (
+                <>
+                  <Button size="small" icon={<CopyOutlined />} onClick={() => copyPrompt(meta.prompt)}>
+                    复制提示词
+                  </Button>
+                  <Button size="small" icon={<ReloadOutlined />} onClick={() => reproduce(meta)}>
+                    参数填回
+                  </Button>
+                  <Popconfirm title="删除当前产物？" okText="删除" cancelText="取消" onConfirm={() => void removeOutput(meta)}>
+                    <Button size="small" danger icon={<DeleteOutlined />}>
+                      删除
+                    </Button>
+                  </Popconfirm>
+                </>
+              ) : (
+                <span className="dim" style={{ fontSize: 12 }}>
+                  历史读取失败，未关联存档
+                </span>
+              )}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* ---- 底部：产物历史 ---- */}
+      <section className="panel wb-history">
+        <div className="history-head">
+          <span className="eyebrow">{allMode ? '全部产物' : '最近产物'}</span>
+          <span className="dim" style={{ fontSize: 12 }}>
+            共 {outputs.length} 张
+          </span>
+          <Button
+            size="small"
+            type="text"
+            style={{ marginLeft: 'auto' }}
+            icon={<HistoryOutlined />}
+            onClick={() => setAllMode((v) => !v)}
+          >
+            {allMode ? '收起' : '查看全部产物'}
+          </Button>
+        </div>
+
+        {outputs.length === 0 ? (
+          <div className="history-empty dim">暂无产物——生成图片后会自动出现在这里，重启应用也不丢失。</div>
+        ) : allMode ? (
+          <div className="out-grid">{outputs.map((out) => renderThumb(out, true))}</div>
+        ) : (
+          <div className="filmstrip">{recent.map((out) => renderThumb(out, false))}</div>
+        )}
+      </section>
     </>
   )
 }
+
 
 /* ---------------- 音频处理 ---------------- */
 

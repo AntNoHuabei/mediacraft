@@ -29,10 +29,24 @@ export function Close(): $CancellablePromise<void> {
 }
 
 /**
- * GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img）。
+ * DeleteImageOutput 删除一条产物。
+ */
+export function DeleteImageOutput(id: string): $CancellablePromise<void> {
+    return $Call.ByID(4202774494, id);
+}
+
+/**
+ * GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img），成功后把产物存档到 outputs。
  */
 export function GenerateImage(request: string): $CancellablePromise<string> {
     return $Call.ByID(968649563, request);
+}
+
+/**
+ * GetImageOutput 取单个产物完整图 + 元信息。
+ */
+export function GetImageOutput(id: string): $CancellablePromise<$models.ImageOutputDetail> {
+    return $Call.ByID(448576701, id);
 }
 
 /**
@@ -61,6 +75,13 @@ export function InstallModel(name: string): $CancellablePromise<void> {
  */
 export function InstallRuntime(name: string): $CancellablePromise<void> {
     return $Call.ByID(1821675968, name);
+}
+
+/**
+ * ListImageOutputs 列出全部产物（新→旧）。
+ */
+export function ListImageOutputs(): $CancellablePromise<$models.ImageOutput[] | null> {
+    return $Call.ByID(2378784664);
 }
 
 /**
