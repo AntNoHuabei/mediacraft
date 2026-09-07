@@ -501,6 +501,23 @@ function ImagePage({ models }: { models: Model[] }) {
     void loadOutputs()
   }, [loadOutputs])
 
+  // 生成进度：纯事件推送（后端解析 sd-server stdout → mc:gen）。
+  useEffect(() => {
+    return Events.On('mc:gen', (payload) => {
+      const d = payload as { status?: string; percent?: number; phase?: string; message?: string }
+      if (!d) return
+      if (d.status === 'done' || d.status === 'error') {
+        setGenProg(null)
+        return
+      }
+      const percent = Math.max(0, Math.min(100, Number(d.percent) || 0))
+      const message = d.message ?? ''
+      setGenProg((prev) =>
+        prev && prev.percent === percent && prev.message === message ? prev : { percent, phase: d.phase ?? '', message },
+      )
+    })
+  }, [])
+
 
 
   // 选中模型后按清单默认参数（default_width/height/steps）填充表单。
@@ -562,19 +579,7 @@ function ImagePage({ models }: { models: Model[] }) {
     if (Number.isFinite(seed) && seed > 0) payload.seed = seed
     setView('canvas')
     setLoading(true)
-    const pollTimer = window.setInterval(() => {
-      ModelService.GenerationProgress(values.model)
-        .then((s) => {
-          if (s && s.available && Number(s.percent) > 0) {
-            const percent = Math.max(0, Math.min(100, Number(s.percent) || 0))
-            const message = s.message ?? ''
-            setGenProg((prev) =>
-              prev && prev.percent === percent && prev.message === message ? prev : { percent, phase: s.phase ?? '', message },
-            )
-          }
-        })
-        .catch(() => undefined)
-    }, 300)
+    setGenProg(null)
     try {
       const b64 = await ModelService.GenerateImage(JSON.stringify(payload))
       setCurrent({ dataUrl: `data:image/png;base64,${b64}` })
@@ -586,9 +591,7 @@ function ImagePage({ models }: { models: Model[] }) {
     } catch (error) {
       message.error(String(error))
     } finally {
-      window.clearInterval(pollTimer)
       setLoading(false)
-      setGenProg(null)
     }
   }
 
