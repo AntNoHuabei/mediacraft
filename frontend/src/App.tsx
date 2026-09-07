@@ -130,11 +130,13 @@ function ModelsPage({
   runtimes,
   refresh,
   installs,
+  sync,
 }: {
   models: Model[]
   runtimes: Runtime[]
   refresh: () => void
   installs: Record<string, InstallInfo>
+  sync: (kind: 'runtime' | 'model', name: string, installed: boolean) => void
 }) {
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState<string | null>(null)
@@ -143,7 +145,10 @@ function ModelsPage({
   const install = (model: Model) => {
     setBusy(model.name)
     ModelService.InstallModel(model.name)
-      .then(() => message.success(`${model.displayName} 安装完成`))
+      .then(() => {
+        sync('model', model.name, true)
+        message.success(`${model.displayName} 安装完成`)
+      })
       .catch((error) => message.error(String(error)))
       .finally(() => {
         setBusy(null)
@@ -153,7 +158,10 @@ function ModelsPage({
   const uninstall = (model: Model) => {
     setBusy(model.name)
     ModelService.UninstallModel(model.name)
-      .then(() => message.success(`${model.displayName} 已卸载`))
+      .then(() => {
+        sync('model', model.name, false)
+        message.success(`${model.displayName} 已卸载`)
+      })
       .catch((error) => message.error(String(error)))
       .finally(() => {
         setBusy(null)
@@ -163,7 +171,10 @@ function ModelsPage({
   const installRuntime = (runtime: Runtime) => {
     setBusy(runtime.name)
     ModelService.InstallRuntime(runtime.name)
-      .then(() => message.success(`${runtime.displayName} 安装完成`))
+      .then(() => {
+        sync('runtime', runtime.name, true)
+        message.success(`${runtime.displayName} 安装完成`)
+      })
       .catch((error) => message.error(String(error)))
       .finally(() => {
         setBusy(null)
@@ -173,7 +184,10 @@ function ModelsPage({
   const uninstallRuntime = (runtime: Runtime) => {
     setBusy(runtime.name)
     ModelService.UninstallRuntime(runtime.name)
-      .then(() => message.success(`${runtime.displayName} 已卸载`))
+      .then(() => {
+        sync('runtime', runtime.name, false)
+        message.success(`${runtime.displayName} 已卸载`)
+      })
       .catch((error) => message.error(String(error)))
       .finally(() => {
         setBusy(null)
@@ -545,6 +559,23 @@ function AppContent() {
       .then((items) => setRuntimes(items ?? []))
       .catch(() => message.error('加载运行时目录失败'))
   }
+  // 安装/卸载成功后立即本地同步（refresh 前的即时反馈，避免刷新失败时状态滞留）
+  const syncInstalled = (kind: 'runtime' | 'model', name: string, installed: boolean) => {
+    if (kind === 'runtime') {
+      setRuntimes((prev) =>
+        prev.map((r) => (r.name === name ? { ...r, installed, status: installed ? 'installed' : 'available' } : r)),
+      )
+    } else {
+      setModels((prev) =>
+        prev.map((m) =>
+          m.name === name
+            ? { ...m, installed, status: installed ? (m.status === 'running' ? 'running' : 'installed') : 'available' }
+            : m,
+        ),
+      )
+    }
+  }
+
   useEffect(() => {
     refresh()
     const offInstall = Events.On('mc:install', (ev: any) => {
@@ -653,7 +684,9 @@ function AppContent() {
         </header>
 
         <main className="stage">
-          {active === 'models' && <ModelsPage models={models} runtimes={runtimes} refresh={refresh} installs={installs} />}
+          {active === 'models' && (
+            <ModelsPage models={models} runtimes={runtimes} refresh={refresh} installs={installs} sync={syncInstalled} />
+          )}
           {active === 'image' && <ImagePage models={models} />}
           {active === 'audio' && <AudioPage models={models} />}
           {active === 'video' && <VideoPage />}
