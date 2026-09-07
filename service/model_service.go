@@ -797,70 +797,114 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 	params := s.modelParameters(input.Model)
 	bodyMap := buildImageRequestBody(input, params)
 	body, _ := json.Marshal(bodyMap)
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/sdapi/v1/txt2img", port), bytes.NewReader(body))
-	if err != nil {
-		return "", err
+	type genOutcome struct {
+		image string
+		info  string
+		err   error
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("image generation request failed: %w", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode/100 != 2 {
-		data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
-		return "", fmt.Errorf("sd-server returned %s: %s", resp.Status, strings.TrimSpace(string(data)))
-	}
-	var result struct {
-		Images []string `json:"images"`
-		Info   string   `json:"info"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", err
-	}
-	if len(result.Images) == 0 {
-		return "", fmt.Errorf("sd-server returned no image")
-	}
-	// 记录实际执行参数（info 里的 seed 等为服务端真实值）。
-	seed := int64(-1)
-	cfg := 0.0
-	if value, ok := bodyMap["seed"]; ok {
-		if n, ok2 := value.(int64); ok2 {
-			seed = n
+	outcome := make(chan genOutcome, 1)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			fmt.Sprintf("http://127.0.0.1:%d/sdapi/v1/txt2img", port), bytes.NewReader(body))
+		if err != nil {
+			outcome <- genOutcome{err: err}
+			return
 		}
-	}
-	if value, ok := bodyMap["cfg_scale"]; ok {
-		cfg, _ = value.(float64)
-	}
-	if strings.TrimSpace(result.Info) != "" {
-		var info struct {
-			Seed int64   `json:"seed"`
-			Cfg  float64 `json:"cfg_scale"`
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			outcome <- genOutcome{err: fmt.Errorf("image generation request failed: %w", err)}
+			return
 		}
-		if err := json.Unmarshal([]byte(result.Info), &info); err == nil {
-			if info.Seed >= 0 {
-				seed = info.Seed
+		defer resp.Body.Close()
+		if resp.StatusCode/100 != 2 {
+			data, _ := io.ReadAll(io.LimitReader(resp.Body, 8<<10))
+			outcome <- genOutcome{err: fmt.Errorf("sd-server returned %s: %s", resp.Status, strings.TrimSpace(string(data)))}
+			return
+		}
+		var result struct {
+			Images []string `json:"images"`
+			Info   string   `json:"info"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			outcome <- genOutcome{err: err}
+			return
+		}
+		if len(result.Images) == 0 {
+			outcome <- genOutcome{err: fmt.Errorf("sd-server returned no image")}
+			return
+		}
+		outcome <- genOutcome{image: result.Images[0], info: result.Info}
+	}()
+
+	// 生成进度：sd-server stdout 采样解析（runtime 侧）→ mc:gen 事件 → 画布进度条。
+	emitGen := func(status string, percent int, phase, message string) {
+		app := application.Get()
+		if app == nil {
+			return
+		}
+		_ = app.Event.Emit("mc:gen", map[string]any{
+			"name": input.Model, "status": status, "percent": percent,
+			"phase": phase, "message": message,
+		})
+	}
+
+	ticker := time.NewTicker(300 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case oc := <-outcome:
+			if oc.err != nil {
+				emitGen("error", 0, "error", "生成失败："+oc.err.Error())
+				return "", oc.err
 			}
-			if info.Cfg > 0 {
-				cfg = info.Cfg
+			emitGen("done", 100, "完成", "生成完成")
+			// 记录实际执行参数（info 里的 seed 等为服务端真实值）。
+			seed := int64(-1)
+			cfg := 0.0
+			if value, ok := bodyMap["seed"]; ok {
+				if n, ok2 := value.(int64); ok2 {
+					seed = n
+				}
+			}
+			if value, ok := bodyMap["cfg_scale"]; ok {
+				cfg, _ = value.(float64)
+			}
+			if strings.TrimSpace(oc.info) != "" {
+				var info struct {
+					Seed int64   `json:"seed"`
+					Cfg  float64 `json:"cfg_scale"`
+				}
+				if err := json.Unmarshal([]byte(oc.info), &info); err == nil {
+					if info.Seed >= 0 {
+						seed = info.Seed
+					}
+					if info.Cfg > 0 {
+						cfg = info.Cfg
+					}
+				}
+			}
+			gen := genParams{
+				Model: input.Model, Prompt: input.Prompt,
+				Width:   bodyMap["width"].(int),
+				Height:  bodyMap["height"].(int),
+				Steps:   bodyMap["steps"].(int),
+				Cfg:     cfg,
+				Seed:    seed,
+				Created: time.Now().UnixMilli(),
+			}
+			if _, err := s.saveImageOutput(gen, oc.image); err != nil {
+				s.log.Warn("persist image output failed", "error", err)
+			}
+			return oc.image, nil
+		case <-ticker.C:
+			if p, ok := s.manager.ModelProgress(input.Model); ok && p.Percent > 0 {
+				emitGen("progress", p.Percent, p.Phase, p.Message)
 			}
 		}
 	}
-	gen := genParams{
-		Model: input.Model, Prompt: input.Prompt,
-		Width:   bodyMap["width"].(int),
-		Height:  bodyMap["height"].(int),
-		Steps:   bodyMap["steps"].(int),
-		Cfg:     cfg,
-		Seed:    seed,
-		Created: time.Now().UnixMilli(),
-	}
-	if _, err := s.saveImageOutput(gen, result.Images[0]); err != nil {
-		s.log.Warn("persist image output failed", "error", err)
-	}
-	return result.Images[0], nil
 }
 
 // Transcribe audio.cpp 离线语音识别（/v1/audio/transcriptions）。

@@ -741,3 +741,10 @@ button.chip {
 .img-panels { flex: 1; min-height: 0; display: flex; }
 .img-panels > .pane-fill { width: 100%; }
 .pane-fill > .composer { margin-top: auto; }
+
+/* ---------------- 生成进度条（画布内） ---------------- */
+.create-canvas .canvas-stage { position: relative; }
+.gen-bar { position: absolute; left: 14px; right: 14px; bottom: 12px; height: 30px; background: rgba(0, 0, 0, 0.62); border-radius: 8px; overflow: hidden; display: flex; align-items: center; padding: 0 12px; gap: 10px; color: #fff; font-size: 12px; }
+.gen-bar-inner { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent), var(--image)); opacity: 0.85; transition: width 0.3s ease; }
+.gen-bar span { position: relative; z-index: 1; white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
+.gen-pct { font-size: 15px; color: var(--accent); }

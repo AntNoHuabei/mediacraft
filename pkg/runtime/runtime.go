@@ -121,6 +121,15 @@ type ModelRuntimeInfo struct {
 	Options         map[string]any
 }
 
+// ModelProgress 推理进度快照（sd-server stdout 采样解析而来）。
+type ModelProgress struct {
+	Phase   string // starting/加载模型/提示词编码/采样/解码/完成
+	Percent int    // 0..100 整体估算
+	Step    int    // 当前采样步
+	Total   int    // 采样总步
+	Message string
+}
+
 // ModelInfo 运行时视角的模型描述（来自 embed 模型 manifest + 本地安装状态）。
 type ModelInfo struct {
 	Name        string

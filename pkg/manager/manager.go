@@ -298,6 +298,18 @@ func (s *Supervisor) modelSupportedByEngineLocked(modelName string, engine runti
 	return false
 }
 
+// ModelProgress 取某模型的实时推理进度（sd-server stdout 解析，仅 sd-cpp 提供）。
+func (s *Supervisor) ModelProgress(modelName string) (runtime.ModelProgress, bool) {
+	for _, rt := range s.engineCandidatesForModel(modelName) {
+		if probe, ok := rt.(interface {
+			ModelProgressSnapshot(string) (runtime.ModelProgress, bool)
+		}); ok {
+			return probe.ModelProgressSnapshot(modelName)
+		}
+	}
+	return runtime.ModelProgress{}, false
+}
+
 // ListModels 跨引擎聚合模型列表（运行中的实例优先覆盖）。
 func (s *Supervisor) ListModels(ctx context.Context, filter runtime.ModelFilter) ([]runtime.ModelInfo, error) {
 	seen := map[string]int{}

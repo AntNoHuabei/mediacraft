@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,8 +29,9 @@ const (
 type SDCppRuntime struct {
 	*BaseRuntime
 
-	mu     sync.RWMutex
-	models map[string]*runningServer
+	mu       sync.RWMutex
+	models   map[string]*runningServer
+	progress map[string]ModelProgress // 模型名 → 推理进度（stdout 解析）
 }
 
 // NewSDCppRuntime 构造 sd.cpp 运行时（会扫描一次安装状态）。
@@ -39,7 +39,26 @@ func NewSDCppRuntime(manifest catalog.Runtime, modelManifests []catalog.Manifest
 	return &SDCppRuntime{
 		BaseRuntime: NewBaseRuntime(SDCpp, manifest, modelManifests, opts),
 		models:      map[string]*runningServer{},
+		progress:    map[string]ModelProgress{},
 	}
+}
+
+// setProgress 记录某模型的推理进度。
+func (r *SDCppRuntime) setProgress(name string, p ModelProgress) {
+	r.mu.Lock()
+	if r.progress == nil {
+		r.progress = map[string]ModelProgress{}
+	}
+	r.progress[name] = p
+	r.mu.Unlock()
+}
+
+// ModelProgressSnapshot 取某模型的推理进度（sd-server stdout 解析而来）。
+func (r *SDCppRuntime) ModelProgressSnapshot(name string) (ModelProgress, bool) {
+	r.mu.RLock()
+	p, ok := r.progress[name]
+	r.mu.RUnlock()
+	return p, ok
 }
 
 // resolveModelFile 解析模型目录内的相对文件（防目录逃逸）。
@@ -215,8 +234,10 @@ func (r *SDCppRuntime) StartModel(ctx context.Context, model ModelInfo, port int
 	cmd.Dir = r.installPath()
 	cmd.Env = withPathEntry(os.Environ(), r.installPath())
 	cmd.SysProcAttr = serverSysProcAttr(true)
-	cmd.Stdout = io.MultiWriter(r.Recent())
-	cmd.Stderr = cmd.Stdout
+	pipe := newSdProgressPipe(func(p ModelProgress) { r.setProgress(model.Name, p) }, r.Recent())
+	r.setProgress(model.Name, ModelProgress{Phase: "starting", Percent: 2, Message: "启动服务"})
+	cmd.Stdout = pipe
+	cmd.Stderr = pipe
 	if err := cmd.Start(); err != nil {
 		retry := exec.Command(exe, args...)
 		retry.Dir = cmd.Dir
@@ -316,7 +337,7 @@ func (r *SDCppRuntime) StopModel(ctx context.Context, modelName string) error {
 		return nil
 	}
 	r.mu.Unlock()
-	for _, entry := range entries {
+	for name, entry := range entries {
 		if entry.job != 0 {
 			closeJobHandle(entry.job)
 		}
@@ -330,6 +351,9 @@ func (r *SDCppRuntime) StopModel(ctx context.Context, modelName string) error {
 			default:
 			}
 		}
+		r.mu.Lock()
+		delete(r.progress, name)
+		r.mu.Unlock()
 	}
 	return nil
 }
@@ -356,6 +380,7 @@ func (r *SDCppRuntime) CheckHealth() error {
 		if entry.cmd == nil || runtimeProcessExited(entry.cmd) || !TCPPortOpen("127.0.0.1", entry.info.Port, defaultRuntimeHealthTimeout) {
 			r.mu.Lock()
 			delete(r.models, name)
+			delete(r.progress, name)
 			r.mu.Unlock()
 			markRuntimeInfoError(&entry.info, "process exited or port unreachable")
 			failedModels = append(failedModels, name)

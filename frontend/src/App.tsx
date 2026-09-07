@@ -483,6 +483,7 @@ function ImagePage({ models }: { models: Model[] }) {
   const [loading, setLoading] = useState(false)
   const [advanced, setAdvanced] = useState(false)
   const [view, setView] = useState<'canvas' | 'recent'>('recent')
+  const [genProg, setGenProg] = useState<{ percent: number; phase: string; message: string } | null>(null)
   const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
   const [outputs, setOutputs] = useState<ImageOutput[]>([])
@@ -499,6 +500,23 @@ function ImagePage({ models }: { models: Model[] }) {
   useEffect(() => {
     void loadOutputs()
   }, [loadOutputs])
+
+  // 生成进度（后端解析 sd-server stdout → mc:gen 事件）。
+  useEffect(() => {
+    return Events.On('mc:gen', (payload) => {
+      const d = payload as { status?: string; percent?: number; phase?: string; message?: string }
+      if (!d) return
+      if (d.status === 'done' || d.status === 'error') {
+        setGenProg(null)
+        return
+      }
+      setGenProg({
+        percent: Math.max(0, Math.min(100, Number(d.percent) || 0)),
+        phase: d.phase ?? '',
+        message: d.message ?? '',
+      })
+    })
+  }, [])
 
   // 选中模型后按清单默认参数（default_width/height/steps）填充表单。
   useEffect(() => {
@@ -679,7 +697,8 @@ function ImagePage({ models }: { models: Model[] }) {
           {loading ? (
             <div className="canvas-empty">
               <span className="canvas-spinner" />
-              <p>正在生成…（首次约需十几秒）</p>
+              <p>{genProg && genProg.message ? genProg.message : '正在生成…'}</p>
+              {genProg && genProg.percent > 0 && <p className="gen-pct mono">{genProg.percent}%</p>}
             </div>
           ) : current ? (
             <img className="canvas" src={current.dataUrl} alt="生成结果" />
@@ -690,6 +709,14 @@ function ImagePage({ models }: { models: Model[] }) {
               </span>
               <p>在下方输入 prompt，像给 agent 下指令一样创作</p>
               <p className="dim">出图自动存档，可在「产物」页签回看全部</p>
+            </div>
+          )}
+          {loading && genProg && (
+            <div className="gen-bar">
+              <div className="gen-bar-inner" style={{ width: `${genProg.percent}%` }} />
+              <span>
+                {genProg.message} · {genProg.percent}%
+              </span>
             </div>
           )}
         </div>
