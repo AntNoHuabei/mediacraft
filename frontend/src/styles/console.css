@@ -508,3 +508,44 @@ body {
     grid-template-columns: 44px minmax(150px, 1.3fr) minmax(120px, 1fr) 84px 96px 108px;
   }
 }
+
+
+/* ============ 安装进度（VU 电平条） ============ */
+
+.install-line {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.meter {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--bg3);
+  overflow: hidden;
+}
+.meter > i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  box-shadow: 0 0 8px rgba(63, 230, 164, 0.45);
+  transition: width 0.15s ease;
+}
+
+.meter-caption {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.3;
+}
+
+.install-line.mini {
+  margin-top: 6px;
+}
+.install-line.mini .meter {
+  height: 3px;
+}
+.install-line.mini .meter-caption {
+  font-size: 10px;
+  color: var(--text-faint);
+}

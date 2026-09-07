@@ -23,6 +23,7 @@ import (
 	"github.com/AntNoHuabei/mediacraft/catalog"
 	"github.com/AntNoHuabei/mediacraft/pkg/manager"
 	appruntime "github.com/AntNoHuabei/mediacraft/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // ModelInfo 模型展示信息（与前端绑定契约一致）。
@@ -107,13 +108,50 @@ func NewModelService(cat catalog.Catalog) (*ModelService, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &ModelService{
+	s := &ModelService{
 		catalog: cat,
 		manager: supervisor,
 		root:    base,
 		log:     log,
 		cancel:  map[string]context.CancelFunc{},
-	}, nil
+	}
+	// 安装进度与模型运行状态经 Wails 事件推给前端。
+	supervisor.OnInstallState = func(name appruntime.Name, state appruntime.InstallState) {
+		s.publishInstall("runtime", string(name), state)
+	}
+	supervisor.OnModelState = func(modelName string, engine appruntime.Name, info appruntime.ModelRuntimeInfo) {
+		app := application.Get()
+		if app == nil {
+			return
+		}
+		_ = app.Event.Emit("mc:model", map[string]any{
+			"name":         modelName,
+			"engine":       string(engine),
+			"run_status":   string(info.RunStatus),
+			"port":         info.Port,
+			"health_error": info.HealthError,
+		})
+	}
+	return s, nil
+}
+
+// publishInstall 把安装进度转成前端事件 mc:install。
+func (s *ModelService) publishInstall(kind, name string, state appruntime.InstallState) {
+	app := application.Get()
+	if app == nil {
+		return
+	}
+	_ = app.Event.Emit("mc:install", map[string]any{
+		"kind":        kind,
+		"name":        name,
+		"status":      string(state.Status),
+		"stage":       string(state.Stage),
+		"progress":    state.Progress,
+		"message":     state.Message,
+		"bytes_done":  state.DownloadedBytes,
+		"bytes_total": state.TotalBytes,
+		"speed":       state.Speed,
+	})
 }
 
 // catalogRuntime 按名字在 catalog 中查找运行时清单。
@@ -223,7 +261,7 @@ func (s *ModelService) GetRuntime(name string) (RuntimeInfo, error) {
 	return s.runtimeInfoFor(r), nil
 }
 
-// InstallRuntime 安装运行时（阻塞；进度回调内部消化）。
+// InstallRuntime 安装运行时（阻塞式 Wails 调用；进度经 mc:install 事件推送）。
 func (s *ModelService) InstallRuntime(name string) error {
 	if _, ok := s.catalogRuntime(name); !ok {
 		return fmt.Errorf("runtime %q not found", name)
@@ -231,11 +269,16 @@ func (s *ModelService) InstallRuntime(name string) error {
 	if info, err := s.manager.GetRuntimeInfo(appruntime.Name(name)); err == nil && info.Installed {
 		return nil
 	}
-	return s.manager.InstallRuntime(context.Background(), appruntime.Name(name), func(state appruntime.InstallState) {
+	err := s.manager.InstallRuntime(context.Background(), appruntime.Name(name), func(state appruntime.InstallState) {
 		if state.Status == appruntime.StatusError {
 			s.log.Warn("runtime install failed", "runtime", name, "message", state.Message)
 		}
 	})
+	if err != nil {
+		s.publishInstall("runtime", name, appruntime.InstallState{Status: appruntime.StatusError, Progress: 0, Message: err.Error()})
+		return err
+	}
+	return nil
 }
 
 // UninstallRuntime 卸载运行时（先停其名下所有模型进程）。
@@ -282,7 +325,14 @@ func (s *ModelService) InstallModel(name string) error {
 		delete(s.cancel, name)
 		s.mu.Unlock()
 	}()
-	return s.manager.InstallModel(ctx, name, nil)
+	cb := func(state appruntime.InstallState) {
+		s.publishInstall("model", name, state)
+	}
+	if err := s.manager.InstallModel(ctx, name, cb); err != nil {
+		s.publishInstall("model", name, appruntime.InstallState{Status: appruntime.StatusError, Progress: 0, Message: err.Error()})
+		return err
+	}
+	return nil
 }
 
 // CancelInstallModel 取消进行中的模型安装。

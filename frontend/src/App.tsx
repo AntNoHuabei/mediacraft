@@ -12,6 +12,7 @@ import {
   VideoCameraOutlined,
 } from '@ant-design/icons'
 import { ModelService } from '../bindings/github.com/AntNoHuabei/mediacraft/service'
+import { Events } from '@wailsio/runtime'
 import { useTheme } from './theme'
 
 type Model = {
@@ -39,6 +40,68 @@ type Runtime = {
 
 const labels: Record<string, string> = { 'image-generation': '图片', tts: 'TTS', asr: 'ASR' }
 
+type InstallInfo = {
+  kind: 'runtime' | 'model'
+  name: string
+  status: string
+  stage: string
+  progress: number
+  message?: string
+  bytes_done?: number
+  bytes_total?: number
+  speed?: number
+}
+
+type ModelState = {
+  name: string
+  engine: string
+  run_status: string
+  port: number
+  health_error?: string
+}
+
+const stageLabel = (stage?: string): string => {
+  switch (stage) {
+    case 'preparing':
+      return '准备中'
+    case 'downloading':
+      return '下载中'
+    case 'verifying':
+      return '校验中'
+    case 'extracting':
+      return '解压中'
+    case 'installing':
+      return '安装中'
+    case 'completed':
+      return '完成'
+    default:
+      return stage ?? '安装中'
+  }
+}
+
+const fmtSpeed = (bytesPerSec?: number): string => {
+  const value = Number(bytesPerSec) || 0
+  if (value <= 0) return ''
+  if (value >= 1048576) return `${(value / 1048576).toFixed(1)} MB/s`
+  if (value >= 1024) return `${(value / 1024).toFixed(1)} KB/s`
+  return `${Math.round(value)} B/s`
+}
+
+function InstallMeter({ info, mini }: { info: InstallInfo; mini?: boolean }) {
+  const progress = Math.max(0, Math.min(100, Number(info.progress) || 0))
+  return (
+    <div className={mini ? 'install-line mini' : 'install-line'}>
+      <div className="meter">
+        <i style={{ width: `${progress}%` }} />
+      </div>
+      <span className="meter-caption mono">
+        {stageLabel(info.stage)} {Math.round(progress)}%
+        {info.speed ? ` · ${fmtSpeed(info.speed)}` : ''}
+      </span>
+    </div>
+  )
+}
+
 const typeAccent = (type: string): string => {
   if (type === 'image-generation') return 'image'
   if (type === 'tts' || type === 'asr') return 'audio'
@@ -62,7 +125,17 @@ function PageHead({ eyebrow, title, desc, extra }: { eyebrow: string; title: str
 
 /* ---------------- 模型库：运行时母线 + 模型轨道 ---------------- */
 
-function ModelsPage({ models, runtimes, refresh }: { models: Model[]; runtimes: Runtime[]; refresh: () => void }) {
+function ModelsPage({
+  models,
+  runtimes,
+  refresh,
+  installs,
+}: {
+  models: Model[]
+  runtimes: Runtime[]
+  refresh: () => void
+  installs: Record<string, InstallInfo>
+}) {
   const [filter, setFilter] = useState('all')
   const [busy, setBusy] = useState<string | null>(null)
   const shown = filter === 'all' ? models : models.filter((model) => model.type === filter)
@@ -129,6 +202,7 @@ function ModelsPage({ models, runtimes, refresh }: { models: Model[]; runtimes: 
       <div className="bus-grid">
         {runtimes.map((runtime) => {
           const installed = runtime.installed
+          const progress = installs[`runtime:${runtime.name}`]
           return (
             <section className="panel bus-card" key={runtime.name}>
               <div className="bus-head">
@@ -142,6 +216,7 @@ function ModelsPage({ models, runtimes, refresh }: { models: Model[]; runtimes: 
                 <span className="tag-mini mono">v{runtime.version || '-'}</span>
               </div>
               <p className="bus-desc">{runtime.description || runtime.displayName}</p>
+              {progress && <InstallMeter info={progress} />}
               <div className="bus-foot">
                 <span className="row-status mono">{installed ? '已挂载' : '未挂载'}</span>
                 <Button
@@ -173,6 +248,7 @@ function ModelsPage({ models, runtimes, refresh }: { models: Model[]; runtimes: 
           {shown.map((model, index) => {
             const installed = model.installed
             const running = model.status === 'running'
+            const progress = installs[`model:${model.name}`]
             return (
               <div className="track-row" key={model.name}>
                 <span className="track-no">{String(index + 1).padStart(2, '0')}</span>
@@ -182,6 +258,7 @@ function ModelsPage({ models, runtimes, refresh }: { models: Model[]; runtimes: 
                     {model.displayName || model.name}
                   </b>
                   <span>{model.description || '本地推理模型'}</span>
+                  {progress && <InstallMeter info={progress} mini />}
                 </div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {(model.runtimes ?? []).map((engine) => (
@@ -457,6 +534,7 @@ function AppContent() {
   const { theme, toggle } = useTheme()
   const [models, setModels] = useState<Model[]>([])
   const [runtimes, setRuntimes] = useState<Runtime[]>([])
+  const [installs, setInstalls] = useState<Record<string, InstallInfo>>({})
   const [active, setActive] = useState<PageKey>('models')
 
   const refresh = () => {
@@ -469,6 +547,30 @@ function AppContent() {
   }
   useEffect(() => {
     refresh()
+    const offInstall = Events.On('mc:install', (ev: any) => {
+      const p = ev?.data as InstallInfo
+      if (!p || typeof p !== 'object' || !p.kind || !p.name) return
+      const key = `${p.kind}:${p.name}`
+      setInstalls((prev) => {
+        const next = { ...prev }
+        if (p.status === 'installed' || p.status === 'error') {
+          delete next[key]
+        } else {
+          next[key] = { ...p, progress: Number(p.progress) || 0 }
+        }
+        return next
+      })
+      if (p.status === 'installed') refresh()
+    })
+    const offModel = Events.On('mc:model', (ev: any) => {
+      const state = ev?.data as ModelState
+      if (!state || typeof state !== 'object' || !state.name) return
+      setModels((prev) => prev.map((m) => (m.name === state.name ? { ...m, status: state.run_status } : m)))
+    })
+    return () => {
+      offInstall()
+      offModel()
+    }
   }, [])
 
   const nav = useMemo<Array<{ key: PageKey; icon: React.ReactNode; label: string }>>(
@@ -551,7 +653,7 @@ function AppContent() {
         </header>
 
         <main className="stage">
-          {active === 'models' && <ModelsPage models={models} runtimes={runtimes} refresh={refresh} />}
+          {active === 'models' && <ModelsPage models={models} runtimes={runtimes} refresh={refresh} installs={installs} />}
           {active === 'image' && <ImagePage models={models} />}
           {active === 'audio' && <AudioPage models={models} />}
           {active === 'video' && <VideoPage />}

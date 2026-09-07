@@ -57,7 +57,7 @@ export function InstallModel(name: string): $CancellablePromise<void> {
 }
 
 /**
- * InstallRuntime 安装运行时（阻塞；进度回调内部消化）。
+ * InstallRuntime 安装运行时（阻塞式 Wails 调用；进度经 mc:install 事件推送）。
  */
 export function InstallRuntime(name: string): $CancellablePromise<void> {
     return $Call.ByID(1821675968, name);
