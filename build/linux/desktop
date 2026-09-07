@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A sdcpp_desktop application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/sdcpp_desktop.exe %u
+Terminal=false
+Type=Application
+Icon=sdcpp_desktop.exe
+Categories=Utility;
+StartupWMClass=sdcpp_desktop.exe
+
+ 

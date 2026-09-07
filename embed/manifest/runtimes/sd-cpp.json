@@ -1,0 +1,110 @@
+{
+  "name": "sd-cpp",
+  "display_name": {
+    "en": "Image Generation",
+    "zh": "图片生成组件"
+  },
+  "description": {
+    "en": "Stable Diffusion C++ Runtime",
+    "zh": "Stable Diffusion C++ 运行时"
+  },
+  "architectures": [
+    {
+      "arch": "amd64",
+      "os": "windows",
+      "xpus": [
+        {
+          "vendor": "amd",
+          "type": "gpu",
+          "versions": [
+            {
+              "version": "809_u1",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-db99efd-bin-win-rocm7.2-x64-v809_u1.zip"
+              },
+              "file_size": 959959593,
+              "sha_256": "872637908f29a46439e0496e7f5afaca6cbfc17102f80d47f5276bf917a475c3"
+            },
+            {
+              "version": "809",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-db99efd-bin-win-rocm-x64-v809.zip"
+              },
+              "file_size": 945031707,
+              "sha_256": "58461ec48a68983d9e066e37e4cc83c147909467979978196a9c30a552c940f2"
+            },
+            {
+              "version": "596_u1",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-90e87bc-bin-win-rocm-x64.zip"
+              },
+              "file_size": 398455140,
+              "sha_256": "ee29a2bd862cdd0f6b79aef151ca0e4a11a9a57436688f5790ccaa045f445ca2"
+            },
+            {
+              "version": "596",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-90e87bc-bin-win-rocm-x64.zip"
+              },
+              "file_size": 398455140,
+              "sha_256": "ba31e0b08eaf6afa28ca29b7b73ac4e4ce69ce46adab84075dc9f570b88ae4f7"
+            },
+            {
+              "version": "1.0.0",
+              "downloads": {
+                "model_scope": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/amd/sd-cpp-bin-win-rocm-x64.zip"
+              },
+              "file_size": 337472227,
+              "sha_256": "028f4587b88ec26cb8458b2b22daa2f3c669ec2e104f02007dd5d865d2886259"
+            }
+          ],
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296
+          }
+        },
+        {
+          "vendor": "nvidia",
+          "type": "gpu",
+          "versions": [
+            {
+              "version": "bfbef5b",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-bfbef5b-bin-win-cuda12-x64-with-cudart.zip"
+              },
+              "file_size": 931654703,
+              "sha_256": "0ecdfd5b957d7d3f6d7298fe8727509a374ba78288543352c3f39e81e1f9f65c"
+            },
+            {
+              "version": "596",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/sd.cpp/sd-master-90e87bc-bin-win-cuda12-x64.zip"
+              },
+              "file_size": 899915502,
+              "sha_256": "3094ca2020204892085d166211ecc84c52df706045149a6f9ce40eaed4225bdb"
+            },
+            {
+              "version": "1.0.0",
+              "downloads": {
+                "model_scope": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/sd-cpp/sd-master-09b12d5-bin-win-cuda12-x64.zip"
+              },
+              "file_size": 904265080,
+              "sha_256": "8e684cf2639d52195a4f255bfd54716279a5169a6b31e19a5c30be7ce23dc1ca"
+            }
+          ],
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "commands": {
+    "install": "unzip {archive} -d {dest}",
+    "start": "{dest}/sd-server.exe"
+  },
+  "created_at": "2026-02-28T00:00:00Z",
+  "updated_at": "2026-08-27T00:00:00Z"
+}

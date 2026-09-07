@@ -1,0 +1,165 @@
+{
+  "name": "qwen3-asr-0.6b",
+  "version": "1.0.0",
+  "type": "asr",
+  "capabilities": [
+    "speech-to-text",
+    "transcription"
+  ],
+  "playground": {
+    "modality": "asr",
+    "streaming": true,
+    "realtime": false,
+    "features": {
+      "waveform": true,
+      "subtitles": true
+    },
+    "parameters": []
+  },
+  "parameter_count": 0.6,
+  "is_moe": false,
+  "num_experts": 0,
+  "active_experts": 0,
+  "active_parameters": 0,
+  "display_name": {
+    "en": "Qwen3-ASR 0.6B",
+    "zh": "Qwen3-ASR 0.6B"
+  },
+  "description": {
+    "en": "Qwen3-ASR 0.6B GGUF for low-latency offline and live streaming transcription.",
+    "zh": "Qwen3-ASR 0.6B GGUF model for offline and live streaming transcription."
+  },
+  "architectures": [
+    {
+      "arch": "amd64",
+      "os": "windows",
+      "format": "gguf",
+      "quantization": "Q8_0",
+      "xpus": [
+        {
+          "vendor": "intel",
+          "type": "cpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-asr/0.6b/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-ASR-0.6B-GGUF/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 0
+          },
+          "runtime_version": "0.5.1-balance-238ab6a9"
+        },
+        {
+          "vendor": "nvidia",
+          "type": "gpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-asr/0.6b/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-ASR-0.6B-GGUF/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          },
+          "runtime_version": "0.5.1-balance-238ab6a9"
+        },
+        {
+          "vendor": "amd",
+          "type": "gpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-asr/0.6b/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-ASR-0.6B-GGUF/qwen3-asr-0.6b-q8_0.gguf",
+                "file_name": "qwen3-asr-0.6b-q8_0.gguf",
+                "file_size": 1151272416,
+                "sha_256": "6c44ec2fb4cee513892d7863c1fcc3ea6b699ffa4d899b0ef4ab19956d9544f7"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          },
+          "runtime_version": "0.5.1-hip-rocm7.2-238ab6a9"
+        }
+      ]
+    }
+  ],
+  "tags": [
+    "asr",
+    "speech",
+    "streaming",
+    "realtime",
+    "qwen3",
+    "gguf"
+  ],
+  "scenarios": [
+    "voice",
+    "speech-to-text",
+    "transcription",
+    "meeting",
+    "multilingual"
+  ],
+  "parameters": {
+    "audio_cpp_family": "qwen3_asr",
+    "audio_cpp_task": "asr",
+    "audio_cpp_mode": "streaming",
+    "maingguf": "qwen3-asr-0.6b-q8_0.gguf",
+    "audio_format": "pcm",
+    "sample_rate": 16000,
+    "language": "zh,yue,en,ja,ko,auto"
+  },
+  "author": "Qwen",
+  "license": "Apache-2.0",
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
+}

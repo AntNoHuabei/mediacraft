@@ -1,0 +1,118 @@
+{
+  "name": "zimage-turbo",
+  "version": "1.0.0",
+  "type": "image-generation",
+  "capabilities": [
+    "text-to-image",
+    "image-to-image"
+  ],
+  "parameter_count": 0,
+  "is_moe": false,
+  "num_experts": 0,
+  "active_experts": 0,
+  "active_parameters": 0,
+  "description": {
+    "en": "Z-Image Turbo Model",
+    "zh": "Z-Image Turbo 模型"
+  },
+  "icon": "/model_logo/zimage.jpeg",
+  "architectures": [
+    {
+      "arch": "amd64",
+      "os": "windows",
+      "xpus": [
+        {
+          "vendor": "amd",
+          "type": "gpu",
+          "inference_engines": [
+            "sd-cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/amd/zimagegguf.zip",
+                "file_size": 0,
+                "sha_256": "4784fa6902cd5c16ae1922374705167e93fc5b61eba3ddca07ca6de0c7476104",
+                "file_name": "zimagegguf.zip"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296
+          },
+          "parameters": {
+            "diffusion_fa": true
+          },
+          "runtime_version": "1.0.0"
+        },
+        {
+          "vendor": "nvidia",
+          "type": "gpu",
+          "inference_engines": [
+            "sd-cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/amd/zimagegguf.zip",
+                "file_size": 0,
+                "sha_256": "4784fa6902cd5c16ae1922374705167e93fc5b61eba3ddca07ca6de0c7476104",
+                "file_name": "zimagegguf.zip"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296
+          },
+          "parameters": {
+            "diffusion_fa": true
+          },
+          "runtime_version": "1.0.0"
+        },
+        {
+          "vendor": "intel",
+          "type": "gpu",
+          "inference_engines": [
+            "sd-cpp",
+            "zimage-ov"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/Z-Image-Turbo26227.zip",
+                "file_size": 0,
+                "sha_256": "de02281c695cf120cdea878c847b242431ceafd1f4089ebfa7843645ecd38e3e",
+                "file_name": "Z-Image-Turbo26227.zip"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592
+          },
+          "runtime_version": "1.0.0"
+        }
+      ],
+      "format": "gguf",
+      "quantization": "Q4_K"
+    }
+  ],
+  "tags": [
+    "zimage",
+    "image-generation",
+    "open-source"
+  ],
+  "parameters": {
+    "diffusion_model": "z_image_turbo-Q4_K.gguf",
+    "vae": "diffusion_pytorch_model.safetensors",
+    "llm": "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
+    "cfg_scale": 1.0,
+    "default_width": 1024,
+    "default_height": 1024,
+    "default_steps": 9
+  },
+  "created_at": "2025-11-28T00:00:00Z",
+  "updated_at": "2025-12-10T00:00:00Z",
+  "recommended_kv_quant": "turbo3"
+}

@@ -1,0 +1,114 @@
+{
+  "name": "audio.cpp",
+  "display_name": {
+    "en": "Audio Generation",
+    "zh": "音频生成组件"
+  },
+  "description": {
+    "en": "audio.cpp runtime for ASR, TTS, and music generation with CPU, CUDA, and HIP backends.",
+    "zh": "audio.cpp local audio runtime for ASR, TTS, and music generation with CPU, CUDA, and HIP backends."
+  },
+  "architectures": [
+    {
+      "arch": "amd64",
+      "os": "windows",
+      "xpus": [
+        {
+          "vendor": "intel",
+          "type": "cpu",
+          "versions": [
+            {
+              "version": "0.5.1-balance-238ab6a9",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/audio.cpp/windows/audiocpp-windows-cpu-balance-238ab6a9.zip"
+              },
+              "file_size": 11435334,
+              "sha_256": "c9db54d75becfc9dfa6930d469b6f201f0f3919e36dfa7f488d0ee754ab5fe23",
+              "feature_tags": [
+                "asr",
+                "tts",
+                "music",
+                "cpu",
+                "gguf"
+              ],
+              "created_at": "2026-08-12T00:00:00Z",
+              "updated_at": "2026-08-12T00:00:00Z"
+            }
+          ],
+          "requirements": {
+            "min_ram": 8589934592,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 0
+          }
+        },
+        {
+          "vendor": "nvidia",
+          "type": "gpu",
+          "cuda_backend": "12",
+          "versions": [
+            {
+              "version": "0.5.1-balance-238ab6a9",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/audio.cpp/windows/audiocpp-windows-cuda-balance-238ab6a9.zip"
+              },
+              "file_size": 248519503,
+              "sha_256": "7e20f1fa984960b327700365a9a8434dc8effa0fcaa8d871c6cf5a35bf77b2a7",
+              "feature_tags": [
+                "asr",
+                "tts",
+                "music",
+                "cuda",
+                "gguf"
+              ],
+              "created_at": "2026-08-12T00:00:00Z",
+              "updated_at": "2026-08-12T00:00:00Z"
+            }
+          ],
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          }
+        },
+        {
+          "vendor": "amd",
+          "type": "gpu",
+          "rocm_backend": "7.2",
+          "versions": [
+            {
+              "version": "0.5.1-hip-rocm7.2-238ab6a9",
+              "downloads": {
+                "model_scope": "https://modelscope.cn/datasets/flowy2025/local-model-runtimes/resolve/master/audio.cpp/windows/audiocpp-windows-hip-rocm7.2-238ab6a9.zip"
+              },
+              "file_size": 614458625,
+              "sha_256": "4ba0e0d081369d6bbc2f584f858142fd99f87646f9fba8d26c767f2eb9e35581",
+              "feature_tags": [
+                "asr",
+                "tts",
+                "music",
+                "hip",
+                "rocm",
+                "gguf"
+              ],
+              "created_at": "2026-08-12T00:00:00Z",
+              "updated_at": "2026-08-12T00:00:00Z"
+            }
+          ],
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          }
+        }
+      ]
+    }
+  ],
+  "dependencies": [],
+  "commands": {
+    "start": "{dest}/audiocpp_server.exe"
+  },
+  "created_at": "2026-08-12T00:00:00Z",
+  "updated_at": "2026-08-12T00:00:00Z"
+}

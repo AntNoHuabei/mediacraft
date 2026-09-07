@@ -1,0 +1,169 @@
+{
+  "name": "qwen3-tts-voiceclone",
+  "version": "1.0.0",
+  "type": "tts",
+  "capabilities": [
+    "text-to-speech",
+    "voice-clone"
+  ],
+  "playground": {
+    "modality": "tts",
+    "streaming": true,
+    "realtime": false,
+    "features": {
+      "voiceClone": true,
+      "referenceAudio": true,
+      "waveform": true,
+      "subtitles": true
+    },
+    "parameters": []
+  },
+  "parameter_count": 1.7,
+  "is_moe": false,
+  "num_experts": 0,
+  "active_experts": 0,
+  "active_parameters": 0,
+  "display_name": {
+    "en": "Qwen3-TTS VoiceClone",
+    "zh": "Qwen3-TTS 声音克隆"
+  },
+  "description": {
+    "en": "Qwen3-TTS Base voice-cloning model running as a native Q8_0 GGUF with audio.cpp.",
+    "zh": "Qwen3-TTS Base 声音克隆模型，使用 audio.cpp 原生运行 Q8_0 GGUF。"
+  },
+  "architectures": [
+    {
+      "arch": "amd64",
+      "os": "windows",
+      "xpus": [
+        {
+          "vendor": "intel",
+          "type": "cpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-tts/clone/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-TTS-12Hz-1.7B-Base-GGUF/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 0
+          },
+          "runtime_version": "0.5.1-balance-238ab6a9"
+        },
+        {
+          "vendor": "nvidia",
+          "type": "gpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-tts/clone/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-TTS-12Hz-1.7B-Base-GGUF/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          },
+          "runtime_version": "0.5.1-balance-238ab6a9"
+        },
+        {
+          "vendor": "amd",
+          "type": "gpu",
+          "inference_engines": [
+            "audio.cpp"
+          ],
+          "downloads": {
+            "model_scope": [
+              {
+                "url": "https://modelscope.cn/models/flowy2025/herdsman_models/resolve/master/qwen3-tts/clone/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ],
+            "hugging_face": [
+              {
+                "url": "https://huggingface.co/audio-cpp/audio.cpp-gguf/resolve/main/Qwen3-TTS-12Hz-1.7B-Base-GGUF/qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_name": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+                "file_size": 2695175104,
+                "sha_256": "b55e06c7890d43c208d15aed8b4ed3f18215f295e47d5960e061b15bff338ab0"
+              }
+            ]
+          },
+          "requirements": {
+            "min_ram": 8589934592,
+            "min_vram": 4294967296,
+            "recommended_ram": 17179869184,
+            "recommended_vram": 8589934592
+          },
+          "runtime_version": "0.5.1-hip-rocm7.2-238ab6a9"
+        }
+      ],
+      "format": "gguf",
+      "quantization": "Q8_0"
+    }
+  ],
+  "tags": [
+    "tts",
+    "speech",
+    "voice",
+    "voice-clone",
+    "qwen3",
+    "gguf",
+    "streaming",
+    "audio.cpp"
+  ],
+  "scenarios": [
+    "voice",
+    "text-to-speech",
+    "podcast",
+    "voice-clone",
+    "voice-interaction"
+  ],
+  "parameters": {
+    "model_type": "base",
+    "audio_format": "wav",
+    "audio_cpp_family": "qwen3_tts",
+    "audio_cpp_task": "tts",
+    "audio_cpp_mode": "offline",
+    "maingguf": "qwen3-tts-12hz-1.7b-base-q8_0_v2.gguf",
+    "sample_rate": 24000
+  },
+  "author": "Qwen",
+  "license": "MIT",
+  "created_at": "2026-01-21T08:57:11Z",
+  "updated_at": "2026-08-20T00:00:00Z"
+}
