@@ -625,6 +625,14 @@ function AppContent() {
       .catch((error) => message.error(String(error)))
   }
 
+  const QQ_GROUP = '488797113'
+  const copyQQGroup = () => {
+    navigator.clipboard
+      ?.writeText(QQ_GROUP)
+      .then(() => message.success(`QQ 群号已复制：${QQ_GROUP}，去 QQ 搜索添加即可`))
+      .catch(() => message.warning(`复制失败，请手动添加 QQ 群号：${QQ_GROUP}`))
+  }
+
   const pageTitle: Record<PageKey, string> = { models: '模型库', image: '图片处理', audio: '音频处理', video: '视频处理' }
 
   return (
@@ -702,6 +710,9 @@ function AppContent() {
           </Button>
           <div className="transport-spacer" />
           <span className="chip mono">MediaCraft Studio</span>
+          <button type="button" className="chip chip-link mono" onClick={copyQQGroup} title="复制群号，去 QQ 添加">
+            QQ 交流群 {QQ_GROUP}
+          </button>
           <span className="chip mono" style={{ color: 'var(--text-faint)' }}>
             audio.cpp · sd.cpp
           </span>

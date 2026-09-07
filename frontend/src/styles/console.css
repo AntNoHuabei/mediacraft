@@ -549,3 +549,19 @@ body {
   font-size: 10px;
   color: var(--text-faint);
 }
+
+
+/* QQ 交流群 chip（可点击复制） */
+button.chip {
+  font: inherit;
+  cursor: pointer;
+}
+.chip.chip-link {
+  border-color: var(--accent-dim);
+  color: var(--accent);
+}
+.chip.chip-link:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg0);
+}
