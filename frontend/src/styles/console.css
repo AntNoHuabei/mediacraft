@@ -727,3 +727,7 @@ button.chip {
 
 /* ---------------- 高级参数 Popover ---------------- */
 .adv-pop { min-width: 340px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 2px; }
+
+/* ---------------- 画布/近期产物互斥视图 ---------------- */
+.create-recent.browse { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 14px 18px 16px; }
+.create-recent.browse .out-grid { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }

@@ -482,6 +482,7 @@ function ImagePage({ models }: { models: Model[] }) {
   const [aspect, setAspect] = useState('1:1')
   const [loading, setLoading] = useState(false)
   const [advanced, setAdvanced] = useState(false)
+  const [view, setView] = useState<'canvas' | 'recent'>('recent')
   const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
   const [outputs, setOutputs] = useState<ImageOutput[]>([])
@@ -556,6 +557,7 @@ function ImagePage({ models }: { models: Model[] }) {
     }
     const payload: Record<string, unknown> = { model: values.model, prompt: values.prompt, width, height, steps }
     if (Number.isFinite(seed) && seed > 0) payload.seed = seed
+    setView('canvas')
     setLoading(true)
     try {
       const b64 = await ModelService.GenerateImage(JSON.stringify(payload))
@@ -576,6 +578,7 @@ function ImagePage({ models }: { models: Model[] }) {
     try {
       const detail: ImageOutputDetail = await ModelService.GetImageOutput(out.id)
       setCurrent({ dataUrl: `data:image/png;base64,${detail.image}`, meta: detail.output })
+      setView('canvas')
       setTab('create')
     } catch (error) {
       message.error(String(error))
@@ -585,7 +588,10 @@ function ImagePage({ models }: { models: Model[] }) {
   const removeOutput = async (out: ImageOutput) => {
     try {
       await ModelService.DeleteImageOutput(out.id)
-      if (current?.meta?.id === out.id) setCurrent(null)
+      if (current?.meta?.id === out.id) {
+        setCurrent(null)
+        setView('recent')
+      }
       setOutputs((prev) => prev.filter((item) => item.id !== out.id))
     } catch (error) {
       message.error(String(error))
@@ -650,7 +656,8 @@ function ImagePage({ models }: { models: Model[] }) {
 
   const createPane = (
     <div className="pane-fill pane-create">
-      {/* 画布占满上方 */}
+      {/* 画布 / 近期产物：同时只显示一个 */}
+      {view === 'canvas' ? (
       <section className="panel create-canvas">
         <div className="canvas-head">
           <div className="eyebrow">CANVAS · 画布</div>
@@ -662,8 +669,8 @@ function ImagePage({ models }: { models: Model[] }) {
             </span>
           )}
           {outputs.length > 0 && (
-            <Button size="small" type="text" style={{ marginLeft: 'auto' }} icon={<HistoryOutlined />} onClick={() => setTab('outputs')}>
-              查看全部产物（{outputs.length}）
+            <Button size="small" type="text" style={{ marginLeft: 'auto' }} icon={<HistoryOutlined />} onClick={() => setView('recent')}>
+              近期产物（{outputs.length}）
             </Button>
           )}
         </div>
@@ -714,13 +721,12 @@ function ImagePage({ models }: { models: Model[] }) {
           </div>
         )}
       </section>
-
-      {/* 近期产物：画布与输入区之间 */}
-      <section className="panel create-recent">
+      ) : (
+      <section className="panel create-recent browse">
         <div className="history-head">
           <span className="eyebrow">近期产物</span>
           <span className="dim" style={{ fontSize: 12 }}>
-            {outputs.length ? `共 ${outputs.length} 张` : '暂无'}
+            {outputs.length ? `共 ${outputs.length} 张 · 生成后自动切到画布` : '还没有产物'}
           </span>
           {outputs.length > 0 && (
             <Button size="small" type="text" style={{ marginLeft: 'auto' }} icon={<HistoryOutlined />} onClick={() => setTab('outputs')}>
@@ -729,13 +735,14 @@ function ImagePage({ models }: { models: Model[] }) {
           )}
         </div>
         {outputs.length === 0 ? (
-          <div className="dim" style={{ fontSize: 12, padding: '2px 0 6px' }}>
-            生成后会自动出现在这里
+          <div className="history-empty dim">
+            还没有生成过图片——在下方输入 prompt 开始创作，生成后自动切到画布回放结果。
           </div>
         ) : (
-          <div className="filmstrip">{recent.slice(0, 8).map((out) => renderThumb(out, false))}</div>
+          <div className="out-grid">{outputs.map((out) => renderThumb(out, true))}</div>
         )}
       </section>
+      )}
 
       {/* 底部：类 Codex 输入区 */}
       <section className="panel composer">
