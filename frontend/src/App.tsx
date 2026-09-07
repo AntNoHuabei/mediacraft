@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tabs, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
+  ArrowUpOutlined,
   AudioOutlined,
   CloudDownloadOutlined,
   CopyOutlined,
@@ -648,107 +649,7 @@ function ImagePage({ models }: { models: Model[] }) {
 
   const createPane = (
     <div className="pane-fill pane-create">
-      {/* ---- 输入区 + 常用参数 ---- */}
-      <section className="panel create-input">
-        <div className="create-head">
-          <Form.Item label="模型" name="model" style={{ marginBottom: 0, width: 250 }} rules={[{ required: true, message: '请选择图片模型' }]}>
-            <Select
-              placeholder="选择已装载的图片模型"
-              options={imageModels.map((m) => ({
-                value: m.name,
-                label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
-                disabled: !m.installed,
-              }))}
-            />
-          </Form.Item>
-          <span className="dim" style={{ fontSize: 12, marginLeft: 6 }}>
-            常用参数：模型 + 尺寸，其余在「高级参数」里
-          </span>
-        </div>
-
-        <Form layout="vertical" form={form} onFinish={(v) => void generate(v)}>
-          <Form.Item label="提示词" name="prompt" style={{ marginBottom: 12 }} rules={[{ required: true, message: '请输入提示词' }]}>
-            <Input.TextArea
-              rows={3}
-              autoSize={{ minRows: 2, maxRows: 5 }}
-              placeholder="描述你想生成的画面…"
-              onPressEnter={(e) => {
-                if (!e.shiftKey) {
-                  e.preventDefault()
-                  form.submit()
-                }
-              }}
-            />
-          </Form.Item>
-
-          <div className="params-row">
-            <Form.Item label="画幅" style={{ marginBottom: 0 }}>
-              <Select
-                style={{ width: 228 }}
-                value={aspect}
-                onChange={pickAspect}
-                options={[
-                  ...ASPECT_PRESETS.map((p) => ({
-                    value: p.key,
-                    label: (
-                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        <AspectGlyph width={p.size.width} height={p.size.height} />
-                        <span>
-                          {p.label} · {p.size.width} × {p.size.height}
-                        </span>
-                      </span>
-                    ),
-                  })),
-                  { value: 'custom', label: '自定义尺寸' },
-                ]}
-              />
-            </Form.Item>
-            {aspect === 'custom' ? (
-              <>
-                <Form.Item label="宽" name="width" initialValue={1024} style={{ marginBottom: 0 }}>
-                  <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
-                </Form.Item>
-                <Form.Item label="高" name="height" initialValue={1024} style={{ marginBottom: 0 }}>
-                  <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
-                </Form.Item>
-              </>
-            ) : null}
-
-            <Button
-              type="text"
-              size="small"
-              style={{ marginLeft: 'auto', alignSelf: 'flex-end', marginBottom: 4 }}
-              onClick={() => setAdvanced((v) => !v)}
-            >
-              {advanced ? '收起高级参数 ▴' : '高级参数 ▾'}
-            </Button>
-          </div>
-
-          {advanced ? (
-            <div className="create-advanced">
-              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                <Form.Item label="步数" name="steps" initialValue={8} style={{ marginBottom: 0 }}>
-                  <InputNumber min={1} max={100} style={{ width: 110 }} />
-                </Form.Item>
-                <Form.Item label="种子（留空=随机）" name="seed" style={{ marginBottom: 0, width: 220 }}>
-                  <InputNumber min={1} max={9007199254740991} precision={0} style={{ width: '100%' }} placeholder="随机" />
-                </Form.Item>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="create-submit">
-            <Button type="primary" htmlType="submit" loading={loading} icon={<PictureOutlined />}>
-              生成图片
-            </Button>
-            <span className="dim" style={{ fontSize: 12 }}>
-              Enter 生成 · Shift+Enter 换行
-            </span>
-          </div>
-        </Form>
-      </section>
-
-      {/* ---- 画布 ---- */}
+      {/* 画布占满上方 */}
       <section className="panel create-canvas">
         <div className="canvas-head">
           <div className="eyebrow">CANVAS · 画布</div>
@@ -779,7 +680,7 @@ function ImagePage({ models }: { models: Model[] }) {
               <span className="big">
                 <PictureOutlined />
               </span>
-              <p>写好提示词，点「生成图片」或按 Enter</p>
+              <p>在下方输入 prompt，像给 agent 下指令一样创作</p>
               <p className="dim">出图自动存档，可在「产物」页签回看全部</p>
             </div>
           )}
@@ -812,8 +713,139 @@ function ImagePage({ models }: { models: Model[] }) {
           </div>
         )}
       </section>
+
+      {/* 底部：类 Codex 输入区 */}
+      <section className="panel composer">
+        <Form form={form} onFinish={(v) => void generate(v)}>
+          <div className="composer-input">
+            <Form.Item
+              name="prompt"
+              style={{ marginBottom: 0, flex: 1 }}
+              rules={[{ required: true, message: '请输入提示词' }]}
+            >
+              <Input.TextArea
+                className="composer-textarea"
+                placeholder="输入 prompt，描述你想生成的画面…（Enter 生成 · Shift+Enter 换行）"
+                autoSize={{ minRows: 1, maxRows: 6 }}
+                onPressEnter={(e) => {
+                  if (!e.shiftKey) {
+                    e.preventDefault()
+                    form.submit()
+                  }
+                }}
+              />
+            </Form.Item>
+            <Tooltip title="生成图片">
+              <Button
+                type="primary"
+                htmlType="submit"
+                shape="circle"
+                icon={loading ? undefined : <ArrowUpOutlined />}
+                loading={loading}
+              />
+            </Tooltip>
+          </div>
+
+          {/* 下面一排选项 */}
+          <div className="composer-options">
+            <span className="opt-chip">
+              <span className="opt-label">模型</span>
+              <Form.Item
+                name="model"
+                style={{ marginBottom: 0 }}
+                rules={[{ required: true, message: '请选择图片模型' }]}
+              >
+                <Select
+                  size="small"
+                  style={{ minWidth: 180 }}
+                  placeholder="选择模型"
+                  options={imageModels.map((m) => ({
+                    value: m.name,
+                    label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
+                    disabled: !m.installed,
+                  }))}
+                />
+              </Form.Item>
+            </span>
+
+            <span className="opt-chip">
+              <span className="opt-label">画幅</span>
+              <Select
+                size="small"
+                style={{ width: 230 }}
+                value={aspect}
+                onChange={pickAspect}
+                options={[
+                  ...ASPECT_PRESETS.map((p) => ({
+                    value: p.key,
+                    label: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <AspectGlyph width={p.size.width} height={p.size.height} />
+                        <span>
+                          {p.label} · {p.size.width} × {p.size.height}
+                        </span>
+                      </span>
+                    ),
+                  })),
+                  { value: 'custom', label: '自定义尺寸' },
+                ]}
+              />
+            </span>
+
+            {aspect === 'custom' ? (
+              <span className="opt-chip">
+                <span className="opt-label">宽</span>
+                <Form.Item name="width" initialValue={1024} style={{ marginBottom: 0 }}>
+                  <InputNumber size="small" min={64} max={2048} step={64} style={{ width: 92 }} />
+                </Form.Item>
+                <span className="opt-label" style={{ marginLeft: 6 }}>
+                  高
+                </span>
+                <Form.Item name="height" initialValue={1024} style={{ marginBottom: 0 }}>
+                  <InputNumber size="small" min={64} max={2048} step={64} style={{ width: 92 }} />
+                </Form.Item>
+              </span>
+            ) : null}
+
+            <Button
+              className="opt-toggle"
+              size="small"
+              type={advanced ? 'primary' : 'default'}
+              onClick={() => setAdvanced((v) => !v)}
+            >
+              {advanced ? '收起高级 ▴' : '高级参数 ▾'}
+            </Button>
+          </div>
+
+          {advanced ? (
+            <div className="composer-advanced">
+              <span className="opt-label">步数</span>
+              <Form.Item name="steps" initialValue={8} style={{ marginBottom: 0 }}>
+                <InputNumber size="small" min={1} max={100} style={{ width: 104 }} />
+              </Form.Item>
+              <span className="opt-label" style={{ marginLeft: 10 }}>
+                种子
+              </span>
+              <Form.Item name="seed" style={{ marginBottom: 0 }}>
+                <InputNumber
+                  size="small"
+                  min={1}
+                  max={9007199254740991}
+                  precision={0}
+                  placeholder="留空=随机"
+                  style={{ width: 160 }}
+                />
+              </Form.Item>
+              <span className="dim" style={{ fontSize: 11 }}>
+                固定 seed 可精确重现同一张图
+              </span>
+            </div>
+          ) : null}
+        </Form>
+      </section>
     </div>
   )
+
 
   const outputsPane = (
     <div className="pane-fill pane-outputs">
@@ -848,7 +880,7 @@ function ImagePage({ models }: { models: Model[] }) {
 
   return (
     <>
-      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="创作与产物分页：提示词输入 + 常用参数，产物自动存档。" />
+      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="创作与产物分页：像给 agent 下指令一样输入 prompt，画布实时出图。" />
       <div className="image-workspace">
         <Tabs
           className="image-tabs"
