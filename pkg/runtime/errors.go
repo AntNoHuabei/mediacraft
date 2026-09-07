@@ -8,28 +8,29 @@ import (
 
 // 稳定错误码：供上层（manager/service/前端）按码判断，不做字符串匹配。
 const (
-	CodeContextCanceled     = "CONTEXT_CANCELED"
-	CodeRuntimeNotInstalled = "RUNTIME_NOT_INSTALLED"
-	CodeRuntimePathMissing  = "RUNTIME_PATH_MISSING"
-	CodeModelPathMissing    = "MODEL_PATH_MISSING"
-	CodeModelFileMissing    = "MODEL_FILE_MISSING"
-	CodeModelNotInstalled   = "MODEL_NOT_INSTALLED"
-	CodeInvalidOptions      = "INVALID_OPTIONS"
-	CodeInvalidModelType    = "INVALID_MODEL_TYPE"
-	CodeExecutableMissing   = "EXECUTABLE_MISSING"
-	CodeProcessStartFailed  = "PROCESS_START_FAILED"
-	CodePortBindFailed      = "PORT_BIND_FAILED"
-	CodeProcessExited       = "PROCESS_EXITED"
-	CodeStartupTimeout      = "STARTUP_TIMEOUT"
-	CodeGPUDriverOutdated   = "GPU_DRIVER_OUTDATED"
-	CodeServiceUnavailable  = "SERVICE_UNAVAILABLE"
-	CodeDownloadFailed      = "DOWNLOAD_FAILED"
-	CodeChecksumMismatch    = "CHECKSUM_MISMATCH"
-	CodeExtractFailed       = "EXTRACT_FAILED"
-	CodeInstallInProgress   = "INSTALL_IN_PROGRESS"
-	CodeRuntimeInUse        = "RUNTIME_IN_USE"
-	CodeModelInUse          = "MODEL_IN_USE"
-	CodeInternal            = "INTERNAL"
+	CodeContextCanceled       = "CONTEXT_CANCELED"
+	CodeRuntimeNotInstalled   = "RUNTIME_NOT_INSTALLED"
+	CodeRuntimePathMissing    = "RUNTIME_PATH_MISSING"
+	CodeModelPathMissing      = "MODEL_PATH_MISSING"
+	CodeModelFileMissing      = "MODEL_FILE_MISSING"
+	CodeModelNotInstalled     = "MODEL_NOT_INSTALLED"
+	CodeInvalidOptions        = "INVALID_OPTIONS"
+	CodeInvalidModelType      = "INVALID_MODEL_TYPE"
+	CodeExecutableMissing     = "EXECUTABLE_MISSING"
+	CodeProcessStartFailed    = "PROCESS_START_FAILED"
+	CodePortBindFailed        = "PORT_BIND_FAILED"
+	CodeProcessExited         = "PROCESS_EXITED"
+	CodeStartupTimeout        = "STARTUP_TIMEOUT"
+	CodeGPUDriverOutdated     = "GPU_DRIVER_OUTDATED"
+	CodeServiceUnavailable    = "SERVICE_UNAVAILABLE"
+	CodeDownloadFailed        = "DOWNLOAD_FAILED"
+	CodeInsufficientDiskSpace = "INSUFFICIENT_DISK_SPACE"
+	CodeChecksumMismatch      = "CHECKSUM_MISMATCH"
+	CodeExtractFailed         = "EXTRACT_FAILED"
+	CodeInstallInProgress     = "INSTALL_IN_PROGRESS"
+	CodeRuntimeInUse          = "RUNTIME_IN_USE"
+	CodeModelInUse            = "MODEL_IN_USE"
+	CodeInternal              = "INTERNAL"
 )
 
 // StartModelError 模型启动/健康失败的结构化错误。
@@ -144,3 +145,12 @@ func (e *InstallError) Error() string {
 }
 
 func (e *InstallError) Unwrap() error { return e.Cause }
+
+// AsInstallError 从 error 链中提取 *InstallError。
+func AsInstallError(err error) (*InstallError, bool) {
+	var target *InstallError
+	if errors.As(err, &target) {
+		return target, true
+	}
+	return nil, false
+}

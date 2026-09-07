@@ -37,6 +37,9 @@ type BaseRuntime struct {
 	mu               sync.RWMutex
 	installStatus    InstallStatusEnum
 	installedVersion string
+
+	// diskFree 探测目标目录所在卷的可用空间（可注入以便测试）。
+	diskFree func(path string) (int64, bool, error)
 }
 
 // NewBaseRuntime 构造基座并执行一次安装状态扫描。
@@ -47,9 +50,51 @@ func NewBaseRuntime(name Name, manifest catalog.Runtime, modelManifests []catalo
 		modelManifests: modelManifests,
 		opts:           opts,
 		recent:         newRecentLog(defaultRecentLogLines),
+		diskFree:       diskFreeBytes,
 	}
 	b.refreshInstallState()
 	return b
+}
+
+// diskSafetyMargin 为下载预留的安全余量：覆盖解压后的体积膨胀与临时文件。
+// 取"文件体积的 1/4"与固定下限 512MB 中较大者。
+func diskSafetyMargin(total int64) int64 {
+	const floor = int64(512) << 20 // 512 MB
+	margin := total / 4
+	if margin < floor {
+		return floor
+	}
+	return margin
+}
+
+func formatBytes(value int64) string {
+	switch {
+	case value >= 1<<30:
+		return fmt.Sprintf("%.2f GB", float64(value)/float64(1<<30))
+	case value >= 1<<20:
+		return fmt.Sprintf("%.1f MB", float64(value)/float64(1<<20))
+	default:
+		return fmt.Sprintf("%d B", value)
+	}
+}
+
+// ensureDiskSpace 在下载前校验目标卷可用空间（total 为下载体积）。
+// 探测不可用/失败时不阻塞（best effort）；余量不足则直接拒绝。
+func (b *BaseRuntime) ensureDiskSpace(dir string, total int64) error {
+	if total <= 0 || b.diskFree == nil {
+		return nil
+	}
+	free, supported, err := b.diskFree(dir)
+	if err != nil || !supported {
+		return nil
+	}
+	required := total + diskSafetyMargin(total)
+	if free < required {
+		return NewInstallError(CodeInsufficientDiskSpace,
+			fmt.Sprintf("磁盘空间不足：下载 %s 需要至少 %s，当前可用 %s（已预留安全余量）",
+				b.name, formatBytes(required), formatBytes(free)))
+	}
+	return nil
 }
 
 // Base 返回自身，便于子类嵌入后访问基座能力。
@@ -204,6 +249,10 @@ func (b *BaseRuntime) Install(ctx context.Context, callback InstallCallback) err
 	if err := os.MkdirAll(parent, 0755); err != nil {
 		b.setInstallState(StatusError, "")
 		return NewInstallError(CodeRuntimePathMissing, "create runtimes dir").WithCause(err)
+	}
+	if err := b.ensureDiskSpace(parent, version.FileSize); err != nil {
+		b.setInstallState(StatusError, "")
+		return err
 	}
 	tempDir, err := os.MkdirTemp(parent, ".runtime-*")
 	if err != nil {
@@ -369,6 +418,9 @@ func (b *BaseRuntime) InstallModel(ctx context.Context, m catalog.Manifest, call
 	}
 	if totalBytes <= 0 {
 		totalBytes = int64(len(downloads))
+	}
+	if err := b.ensureDiskSpace(target, totalBytes); err != nil {
+		return err
 	}
 	var completed int64
 	for i, d := range downloads {
