@@ -853,6 +853,7 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
+	lastPercent := -1
 	for {
 		select {
 		case oc := <-outcome:
@@ -901,6 +902,10 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 			return oc.image, nil
 		case <-ticker.C:
 			if p, ok := s.manager.ModelProgress(input.Model); ok && p.Percent > 0 {
+				if p.Percent != lastPercent {
+					lastPercent = p.Percent
+					s.log.Info("gen progress", "model", input.Model, "percent", p.Percent, "phase", p.Phase, "message", p.Message)
+				}
 				emitGen("progress", p.Percent, p.Phase, p.Message)
 			}
 		}
