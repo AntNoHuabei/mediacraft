@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tooltip, message } from 'antd'
+import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tabs, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
@@ -479,8 +479,10 @@ function ImagePage({ models }: { models: Model[] }) {
   const selectedModel = Form.useWatch('model', form) as string | undefined
   const [aspect, setAspect] = useState('1:1')
   const [loading, setLoading] = useState(false)
-  const [outputs, setOutputs] = useState<ImageOutput[]>([])
+  const [advanced, setAdvanced] = useState(false)
+  const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
+  const [outputs, setOutputs] = useState<ImageOutput[]>([])
   const [current, setCurrent] = useState<CurrentImage | null>(null)
 
   const loadOutputs = useCallback(async () => {
@@ -538,6 +540,10 @@ function ImagePage({ models }: { models: Model[] }) {
       message.warning('请先在模型库安装图片模型')
       return
     }
+    if (!values.prompt || !values.prompt.trim()) {
+      message.warning('请输入提示词')
+      return
+    }
     const width = roundTo64(Number(values.width) || 1024)
     const height = roundTo64(Number(values.height) || 1024)
     const steps = Math.max(1, Math.round(Number(values.steps) || 8))
@@ -546,13 +552,7 @@ function ImagePage({ models }: { models: Model[] }) {
       applySize(width, height)
       message.info(`尺寸已对齐到 64 的倍数：${width} × ${height}`)
     }
-    const payload: Record<string, unknown> = {
-      model: values.model,
-      prompt: values.prompt,
-      width,
-      height,
-      steps,
-    }
+    const payload: Record<string, unknown> = { model: values.model, prompt: values.prompt, width, height, steps }
     if (Number.isFinite(seed) && seed > 0) payload.seed = seed
     setLoading(true)
     try {
@@ -574,6 +574,7 @@ function ImagePage({ models }: { models: Model[] }) {
     try {
       const detail: ImageOutputDetail = await ModelService.GetImageOutput(out.id)
       setCurrent({ dataUrl: `data:image/png;base64,${detail.image}`, meta: detail.output })
+      setTab('create')
     } catch (error) {
       message.error(String(error))
     }
@@ -597,14 +598,20 @@ function ImagePage({ models }: { models: Model[] }) {
     }
     applySize(roundTo64(out.width), roundTo64(out.height))
     form.setFieldsValue({ model: out.model, prompt: out.prompt, steps: out.steps, seed: out.seed })
+    setTab('create')
     message.success('参数已填回，可直接再次生成')
   }
 
   const copyPrompt = (prompt: string) => {
-    navigator.clipboard?.writeText(prompt).then(
-      () => message.success('提示词已复制'),
-      () => message.info(prompt),
-    )
+    const clip = navigator.clipboard
+    if (clip) {
+      clip.writeText(prompt).then(
+        () => message.success('提示词已复制'),
+        () => message.info(prompt),
+      )
+    } else {
+      message.info(prompt)
+    }
   }
 
   const downloadCurrent = () => {
@@ -639,167 +646,220 @@ function ImagePage({ models }: { models: Model[] }) {
 
   const recent = outputs.slice(0, 12)
 
-  return (
-    <>
-      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="文生图双栏工作台：左侧调参，右侧画布，产物自动存档回看。" />
+  const createPane = (
+    <div className="pane-fill pane-create">
+      {/* ---- 输入区 + 常用参数 ---- */}
+      <section className="panel create-input">
+        <div className="create-head">
+          <Form.Item label="模型" name="model" style={{ marginBottom: 0, width: 250 }} rules={[{ required: true, message: '请选择图片模型' }]}>
+            <Select
+              placeholder="选择已装载的图片模型"
+              options={imageModels.map((m) => ({
+                value: m.name,
+                label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
+                disabled: !m.installed,
+              }))}
+            />
+          </Form.Item>
+          <span className="dim" style={{ fontSize: 12, marginLeft: 6 }}>
+            常用参数：模型 + 尺寸，其余在「高级参数」里
+          </span>
+        </div>
 
-      <div className="wb">
-        {/* ---- 左：参数 ---- */}
-        <section className="panel wb-params">
-          <Form layout="vertical" form={form} onFinish={(v) => void generate(v)}>
-            <div className="group-label">输入</div>
-            <Form.Item label="模型" name="model" rules={[{ required: true, message: '请选择图片模型' }]}>
+        <Form layout="vertical" form={form} onFinish={(v) => void generate(v)}>
+          <Form.Item label="提示词" name="prompt" style={{ marginBottom: 12 }} rules={[{ required: true, message: '请输入提示词' }]}>
+            <Input.TextArea
+              rows={3}
+              autoSize={{ minRows: 2, maxRows: 5 }}
+              placeholder="描述你想生成的画面…"
+              onPressEnter={(e) => {
+                if (!e.shiftKey) {
+                  e.preventDefault()
+                  form.submit()
+                }
+              }}
+            />
+          </Form.Item>
+
+          <div className="params-row">
+            <Form.Item label="画幅" style={{ marginBottom: 0 }}>
               <Select
-                placeholder="选择已装载的图片模型"
-                options={imageModels.map((m) => ({
-                  value: m.name,
-                  label: `${m.displayName}${m.installed ? '' : '（未安装）'}`,
-                  disabled: !m.installed,
-                }))}
+                style={{ width: 228 }}
+                value={aspect}
+                onChange={pickAspect}
+                options={[
+                  ...ASPECT_PRESETS.map((p) => ({
+                    value: p.key,
+                    label: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <AspectGlyph width={p.size.width} height={p.size.height} />
+                        <span>
+                          {p.label} · {p.size.width} × {p.size.height}
+                        </span>
+                      </span>
+                    ),
+                  })),
+                  { value: 'custom', label: '自定义尺寸' },
+                ]}
               />
             </Form.Item>
-            <Form.Item label="提示词" name="prompt" rules={[{ required: true, message: '请输入提示词' }]}>
-              <Input.TextArea rows={6} placeholder="描述你想生成的画面…" />
-            </Form.Item>
+            {aspect === 'custom' ? (
+              <>
+                <Form.Item label="宽" name="width" initialValue={1024} style={{ marginBottom: 0 }}>
+                  <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
+                </Form.Item>
+                <Form.Item label="高" name="height" initialValue={1024} style={{ marginBottom: 0 }}>
+                  <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
+                </Form.Item>
+              </>
+            ) : null}
 
-            <div className="group-label">尺寸</div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <Form.Item label="画幅" style={{ marginBottom: aspect === 'custom' ? 8 : 4 }}>
-                <Select
-                  style={{ width: 210 }}
-                  value={aspect}
-                  onChange={pickAspect}
-                  options={[
-                    ...ASPECT_PRESETS.map((p) => ({
-                      value: p.key,
-                      label: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center' }}>
-                          <AspectGlyph width={p.size.width} height={p.size.height} />
-                          <span>
-                            {p.label} · {p.size.width} × {p.size.height}
-                          </span>
-                        </span>
-                      ),
-                    })),
-                    { value: 'custom', label: '自定义尺寸' },
-                  ]}
-                />
-              </Form.Item>
-              {aspect === 'custom' ? (
-                <>
-                  <Form.Item label="宽" name="width" initialValue={1024}>
-                    <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
-                  </Form.Item>
-                  <Form.Item label="高" name="height" initialValue={1024}>
-                    <InputNumber min={64} max={2048} step={64} style={{ width: 96 }} />
-                  </Form.Item>
-                </>
-              ) : null}
+            <Button
+              type="text"
+              size="small"
+              style={{ marginLeft: 'auto', alignSelf: 'flex-end', marginBottom: 4 }}
+              onClick={() => setAdvanced((v) => !v)}
+            >
+              {advanced ? '收起高级参数 ▴' : '高级参数 ▾'}
+            </Button>
+          </div>
+
+          {advanced ? (
+            <div className="create-advanced">
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <Form.Item label="步数" name="steps" initialValue={8} style={{ marginBottom: 0 }}>
+                  <InputNumber min={1} max={100} style={{ width: 110 }} />
+                </Form.Item>
+                <Form.Item label="种子（留空=随机）" name="seed" style={{ marginBottom: 0, width: 220 }}>
+                  <InputNumber min={1} max={9007199254740991} precision={0} style={{ width: '100%' }} placeholder="随机" />
+                </Form.Item>
+              </div>
             </div>
+          ) : null}
 
-            <div className="group-label">采样</div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <Form.Item label="步数" name="steps" initialValue={8}>
-                <InputNumber min={1} max={100} style={{ width: 100 }} />
-              </Form.Item>
-              <Form.Item label="种子（留空=随机）" name="seed" style={{ flex: 1 }}>
-                <InputNumber min={1} max={9007199254740991} precision={0} style={{ width: '100%' }} placeholder="随机" />
-              </Form.Item>
-            </div>
-
-            <Button type="primary" block size="large" htmlType="submit" loading={loading} icon={<PictureOutlined />} style={{ marginTop: 4 }}>
+          <div className="create-submit">
+            <Button type="primary" htmlType="submit" loading={loading} icon={<PictureOutlined />}>
               生成图片
             </Button>
-          </Form>
-        </section>
+            <span className="dim" style={{ fontSize: 12 }}>
+              Enter 生成 · Shift+Enter 换行
+            </span>
+          </div>
+        </Form>
+      </section>
 
-        {/* ---- 右：画布 ---- */}
-        <section className="panel wb-canvas">
-          <div className="canvas-head">
-            <div className="eyebrow">CANVAS · 画布</div>
-            {meta && (
-              <span className="meta-line mono" style={{ marginLeft: 'auto' }}>
-                {modelName(meta.model)} · {meta.width}×{meta.height} · {meta.steps} 步
-                {meta.cfgScale > 0 ? ` · cfg ${meta.cfgScale}` : ''}
-                {meta.seed > 0 ? ` · seed ${meta.seed}` : ''} · {fmtClock(meta.createdAt)}
+      {/* ---- 画布 ---- */}
+      <section className="panel create-canvas">
+        <div className="canvas-head">
+          <div className="eyebrow">CANVAS · 画布</div>
+          {meta && (
+            <span className="meta-line mono">
+              {modelName(meta.model)} · {meta.width}×{meta.height} · {meta.steps} 步
+              {meta.cfgScale > 0 ? ` · cfg ${meta.cfgScale}` : ''}
+              {meta.seed > 0 ? ` · seed ${meta.seed}` : ''} · {fmtClock(meta.createdAt)}
+            </span>
+          )}
+          {outputs.length > 0 && (
+            <Button size="small" type="text" style={{ marginLeft: 'auto' }} icon={<HistoryOutlined />} onClick={() => setTab('outputs')}>
+              查看全部产物（{outputs.length}）
+            </Button>
+          )}
+        </div>
+
+        <div className="canvas-stage">
+          {loading ? (
+            <div className="canvas-empty">
+              <span className="canvas-spinner" />
+              <p>正在生成…（首次约需十几秒）</p>
+            </div>
+          ) : current ? (
+            <img className="canvas" src={current.dataUrl} alt="生成结果" />
+          ) : (
+            <div className="canvas-empty">
+              <span className="big">
+                <PictureOutlined />
+              </span>
+              <p>写好提示词，点「生成图片」或按 Enter</p>
+              <p className="dim">出图自动存档，可在「产物」页签回看全部</p>
+            </div>
+          )}
+        </div>
+
+        {current && (
+          <div className="canvas-actions">
+            <Button size="small" icon={<DownloadOutlined />} onClick={downloadCurrent}>
+              下载
+            </Button>
+            {meta ? (
+              <>
+                <Button size="small" icon={<CopyOutlined />} onClick={() => copyPrompt(meta.prompt)}>
+                  复制提示词
+                </Button>
+                <Button size="small" icon={<ReloadOutlined />} onClick={() => reproduce(meta)}>
+                  参数填回
+                </Button>
+                <Popconfirm title="删除当前产物？" okText="删除" cancelText="取消" onConfirm={() => void removeOutput(meta)}>
+                  <Button size="small" danger icon={<DeleteOutlined />}>
+                    删除
+                  </Button>
+                </Popconfirm>
+              </>
+            ) : (
+              <span className="dim" style={{ fontSize: 12 }}>
+                历史读取失败，未关联存档
               </span>
             )}
           </div>
+        )}
+      </section>
+    </div>
+  )
 
-          <div className="canvas-stage">
-            {loading ? (
-              <div className="canvas-empty">
-                <span className="big canvas-spinner" />
-                <p>正在生成…（首次约需十几秒）</p>
-              </div>
-            ) : current ? (
-              <img className="canvas" src={current.dataUrl} alt="生成结果" />
-            ) : (
-              <div className="canvas-empty">
-                <span className="big">
-                  <PictureOutlined />
-                </span>
-                <p>在左侧写好提示词，点「生成图片」</p>
-                <p className="dim">每次出图会自动存档，可从底部历史点选回看</p>
-              </div>
-            )}
-          </div>
-
-          {current && (
-            <div className="canvas-actions">
-              <Button size="small" icon={<DownloadOutlined />} onClick={downloadCurrent}>
-                下载
-              </Button>
-              {meta ? (
-                <>
-                  <Button size="small" icon={<CopyOutlined />} onClick={() => copyPrompt(meta.prompt)}>
-                    复制提示词
-                  </Button>
-                  <Button size="small" icon={<ReloadOutlined />} onClick={() => reproduce(meta)}>
-                    参数填回
-                  </Button>
-                  <Popconfirm title="删除当前产物？" okText="删除" cancelText="取消" onConfirm={() => void removeOutput(meta)}>
-                    <Button size="small" danger icon={<DeleteOutlined />}>
-                      删除
-                    </Button>
-                  </Popconfirm>
-                </>
-              ) : (
-                <span className="dim" style={{ fontSize: 12 }}>
-                  历史读取失败，未关联存档
-                </span>
-              )}
-            </div>
-          )}
-        </section>
-      </div>
-
-      {/* ---- 底部：产物历史 ---- */}
-      <section className="panel wb-history">
+  const outputsPane = (
+    <div className="pane-fill pane-outputs">
+      <section className="panel outputs-area">
         <div className="history-head">
           <span className="eyebrow">{allMode ? '全部产物' : '最近产物'}</span>
           <span className="dim" style={{ fontSize: 12 }}>
-            共 {outputs.length} 张
+            共 {outputs.length} 张 · 点击回看并切回创作
           </span>
-          <Button
-            size="small"
-            type="text"
-            style={{ marginLeft: 'auto' }}
-            icon={<HistoryOutlined />}
-            onClick={() => setAllMode((v) => !v)}
-          >
-            {allMode ? '收起' : '查看全部产物'}
-          </Button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+            <Button size="small" type="text" onClick={() => setAllMode((v) => !v)}>
+              {allMode ? '只看最近 ▴' : '查看全部 ▾'}
+            </Button>
+            <Button size="small" type="text" icon={<PictureOutlined />} onClick={() => setTab('create')}>
+              回到创作
+            </Button>
+          </div>
         </div>
 
         {outputs.length === 0 ? (
-          <div className="history-empty dim">暂无产物——生成图片后会自动出现在这里，重启应用也不丢失。</div>
+          <div className="history-empty dim">
+            暂无产物——在「创作」页生成图片后会自动出现在这里，重启应用也不丢失。
+          </div>
         ) : allMode ? (
           <div className="out-grid">{outputs.map((out) => renderThumb(out, true))}</div>
         ) : (
           <div className="filmstrip">{recent.map((out) => renderThumb(out, false))}</div>
         )}
       </section>
+    </div>
+  )
+
+  return (
+    <>
+      <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="创作与产物分页：提示词输入 + 常用参数，产物自动存档。" />
+      <div className="image-workspace">
+        <Tabs
+          className="image-tabs"
+          activeKey={tab}
+          onChange={(key) => setTab(key as 'create' | 'outputs')}
+          items={[
+            { key: 'create', label: '创作', children: createPane },
+            { key: 'outputs', label: `产物${outputs.length > 0 ? `（${outputs.length}）` : ''}`, children: outputsPane },
+          ]}
+        />
+      </div>
     </>
   )
 }
