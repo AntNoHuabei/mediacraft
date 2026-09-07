@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Popconfirm, Select, Tabs, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
-  ArrowUpOutlined,
   AudioOutlined,
   CloudDownloadOutlined,
   CopyOutlined,
@@ -726,7 +725,7 @@ function ImagePage({ models }: { models: Model[] }) {
               <Input.TextArea
                 className="composer-textarea"
                 placeholder="输入 prompt，描述你想生成的画面…（Enter 生成 · Shift+Enter 换行）"
-                autoSize={{ minRows: 1, maxRows: 6 }}
+                autoSize={{ minRows: 3, maxRows: 9 }}
                 onPressEnter={(e) => {
                   if (!e.shiftKey) {
                     e.preventDefault()
@@ -735,15 +734,6 @@ function ImagePage({ models }: { models: Model[] }) {
                 }}
               />
             </Form.Item>
-            <Tooltip title="生成图片">
-              <Button
-                type="primary"
-                htmlType="submit"
-                shape="circle"
-                icon={loading ? undefined : <ArrowUpOutlined />}
-                loading={loading}
-              />
-            </Tooltip>
           </div>
 
           {/* 下面一排选项 */}
@@ -814,6 +804,10 @@ function ImagePage({ models }: { models: Model[] }) {
               onClick={() => setAdvanced((v) => !v)}
             >
               {advanced ? '收起高级 ▴' : '高级参数 ▾'}
+            </Button>
+            <span style={{ flex: 1 }} />
+            <Button type='primary' htmlType='submit' loading={loading} icon={<PictureOutlined />}>
+              生成
             </Button>
           </div>
 
