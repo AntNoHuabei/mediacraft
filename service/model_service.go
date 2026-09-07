@@ -781,6 +781,27 @@ func (s *ModelService) DeleteImageOutput(id string) error {
 	return nil
 }
 
+// GenerationProgressInfo 生成进度快照（轮询用，跨过事件链路）。
+type GenerationProgressInfo struct {
+	Available bool    `json:"available"`
+	Percent   int     `json:"percent"`
+	Phase     string  `json:"phase"`
+	Step      int     `json:"step"`
+	Total     int     `json:"total"`
+	Message   string  `json:"message"`
+}
+
+// GenerationProgress 查询某模型当前生成进度（由 sd-server stdout 解析而来）。
+func (s *ModelService) GenerationProgress(model string) GenerationProgressInfo {
+	p, ok := s.manager.ModelProgress(model)
+	if !ok {
+		return GenerationProgressInfo{}
+	}
+	return GenerationProgressInfo{
+		Available: true, Percent: p.Percent, Phase: p.Phase,
+		Step: p.Step, Total: p.Total, Message: p.Message,
+	}
+}
 // GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img），成功后把产物存档到 outputs。
 func (s *ModelService) GenerateImage(request string) (string, error) {
 	input, err := parseImageRequest(request)

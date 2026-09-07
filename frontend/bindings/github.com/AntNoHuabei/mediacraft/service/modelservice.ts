@@ -43,6 +43,13 @@ export function GenerateImage(request: string): $CancellablePromise<string> {
 }
 
 /**
+ * GenerationProgress 查询某模型当前生成进度（由 sd-server stdout 解析而来）。
+ */
+export function GenerationProgress(model: string): $CancellablePromise<$models.GenerationProgressInfo> {
+    return $Call.ByID(729071116, model);
+}
+
+/**
  * GetImageOutput 取单个产物完整图 + 元信息。
  */
 export function GetImageOutput(id: string): $CancellablePromise<$models.ImageOutputDetail> {

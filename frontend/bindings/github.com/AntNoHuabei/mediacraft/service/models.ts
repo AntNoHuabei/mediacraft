@@ -7,6 +7,18 @@ export interface ASRResult {
 }
 
 /**
+ * GenerationProgressInfo 生成进度快照（轮询用，跨过事件链路）。
+ */
+export interface GenerationProgressInfo {
+    "available": boolean;
+    "percent": number;
+    "phase": string;
+    "step": number;
+    "total": number;
+    "message": string;
+}
+
+/**
  * ImageOutput 产物历史条目（磁盘 outputs 目录持久化，png + meta + 缩略图）。
  */
 export interface ImageOutput {

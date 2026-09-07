@@ -589,6 +589,19 @@ function ImagePage({ models }: { models: Model[] }) {
     if (Number.isFinite(seed) && seed > 0) payload.seed = seed
     setView('canvas')
     setLoading(true)
+    const pollTimer = window.setInterval(() => {
+      ModelService.GenerationProgress(values.model)
+        .then((s) => {
+          if (s && s.available && Number(s.percent) > 0) {
+            setGenProg({
+              percent: Math.max(0, Math.min(100, Number(s.percent) || 0)),
+              phase: s.phase ?? '',
+              message: s.message ?? '',
+            })
+          }
+        })
+        .catch(() => undefined)
+    }, 300)
     try {
       const b64 = await ModelService.GenerateImage(JSON.stringify(payload))
       setCurrent({ dataUrl: `data:image/png;base64,${b64}` })
@@ -600,7 +613,9 @@ function ImagePage({ models }: { models: Model[] }) {
     } catch (error) {
       message.error(String(error))
     } finally {
+      window.clearInterval(pollTimer)
       setLoading(false)
+      setGenProg(null)
     }
   }
 

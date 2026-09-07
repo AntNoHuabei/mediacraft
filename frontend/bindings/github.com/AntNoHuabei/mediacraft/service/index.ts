@@ -8,6 +8,7 @@ export {
 
 export type {
     ASRResult,
+    GenerationProgressInfo,
     ImageOutput,
     ImageOutputDetail,
     ModelInfo,
