@@ -412,26 +412,27 @@ func (b *BaseRuntime) InstallModel(ctx context.Context, m catalog.Manifest, call
 	if len(downloads) == 0 {
 		return NewInstallError(CodeDownloadFailed, fmt.Sprintf("model %s has no downloads", m.Name))
 	}
-	var totalBytes int64
+	// 进度按“文件槽位”估算：每个文件均分 0..90 的区间。
+	// 不依赖清单 file_size（部分下载项为 0），未知大小也能随下载推进。
+	count := len(downloads)
+	slot := float64(90) / float64(count)
+	var knownBytes int64
 	for _, d := range downloads {
-		totalBytes += d.FileSize
+		knownBytes += d.FileSize
 	}
-	if totalBytes <= 0 {
-		totalBytes = int64(len(downloads))
-	}
-	if err := b.ensureDiskSpace(target, totalBytes); err != nil {
+	if err := b.ensureDiskSpace(target, knownBytes); err != nil {
 		return err
 	}
-	var completed int64
+	var completedBytes int64
 	for i, d := range downloads {
 		label := filepath.Base(d.FileName)
 		if label == "" || label == "." {
 			label = filepath.Base(d.URL)
 		}
-		baseline := int(float64(completed) / float64(totalBytes) * 90)
+		progressBase := int(float64(i) * slot)
 		emit(callback, InstallState{
-			Status: StatusDownloading, Stage: InstallStageDownloading, Progress: baseline,
-			DownloadedBytes: completed, TotalBytes: totalBytes, Message: "下载 " + label,
+			Status: StatusDownloading, Stage: InstallStageDownloading, Progress: progressBase,
+			DownloadedBytes: completedBytes, TotalBytes: knownBytes, Message: "下载 " + label,
 		})
 		tmp, err := os.CreateTemp(target, ".download-*")
 		if err != nil {
@@ -447,19 +448,17 @@ func (b *BaseRuntime) InstallModel(ctx context.Context, m catalog.Manifest, call
 		}()
 
 		fileTotal := d.FileSize
-		start := completed
 		downloadErr := b.opts.Downloader.DownloadWithContext(ctx, d.URL, tmpPath, d.SHA256, d.FileSize, func(progress float64, speed float64) {
 			fraction := clampProgress(progress)
-			fileDone := int64(fraction * float64(fileTotal))
-			done := start + fileDone
-			overall := float64(0)
-			if totalBytes > 0 {
-				overall = float64(done) / float64(totalBytes)
+			var done int64
+			if fileTotal > 0 {
+				done = int64(fraction * float64(fileTotal))
 			}
+			percent := progressBase + int(fraction*slot)
 			emit(callback, InstallState{
 				Status: StatusDownloading, Stage: InstallStageDownloading,
-				Progress:        int(clampProgress(overall) * 90),
-				DownloadedBytes: done, TotalBytes: totalBytes,
+				Progress:        percent,
+				DownloadedBytes: completedBytes + done, TotalBytes: knownBytes,
 				Speed: int64(speed), Message: "下载 " + label,
 			})
 		})
@@ -480,13 +479,12 @@ func (b *BaseRuntime) InstallModel(ctx context.Context, m catalog.Manifest, call
 			}
 			removeTmp = false
 		}
-		completed += fileTotal
-		if fileTotal <= 0 {
-			completed = int64(i + 1)
+		if fileTotal > 0 {
+			completedBytes += fileTotal
 		}
 		emit(callback, InstallState{
 			Status: StatusInstalling, Stage: InstallStageExtracting,
-			Progress: int(float64(completed) / float64(totalBytes) * 90), Message: "完成 " + label,
+			Progress: int(float64(i+1) * slot), Message: "完成 " + label,
 		})
 	}
 	if err := os.WriteFile(filepath.Join(target, ".installed"), []byte(m.Version), 0644); err != nil {

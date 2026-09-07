@@ -31,7 +31,7 @@
             "model_scope": [
               {
                 "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/amd/zimagegguf.zip",
-                "file_size": 0,
+                "file_size": 6332288399,
                 "sha_256": "4784fa6902cd5c16ae1922374705167e93fc5b61eba3ddca07ca6de0c7476104",
                 "file_name": "zimagegguf.zip"
               }
@@ -56,7 +56,7 @@
             "model_scope": [
               {
                 "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/amd/zimagegguf.zip",
-                "file_size": 0,
+                "file_size": 6332288399,
                 "sha_256": "4784fa6902cd5c16ae1922374705167e93fc5b61eba3ddca07ca6de0c7476104",
                 "file_name": "zimagegguf.zip"
               }
@@ -82,7 +82,7 @@
             "model_scope": [
               {
                 "url": "https://www.modelscope.cn/models/flowy2025/agent/resolve/master/agent/z-image/Z-Image-Turbo26227.zip",
-                "file_size": 0,
+                "file_size": 5262852149,
                 "sha_256": "de02281c695cf120cdea878c847b242431ceafd1f4089ebfa7843645ecd38e3e",
                 "file_name": "Z-Image-Turbo26227.zip"
               }
