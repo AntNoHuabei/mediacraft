@@ -215,11 +215,12 @@ func (b *BaseRuntime) Install(ctx context.Context, callback InstallCallback) err
 	archive := filepath.Join(tempDir, "download.zip")
 	emit(callback, InstallState{Status: StatusDownloading, Stage: InstallStageDownloading, Progress: 0, Message: "下载运行时", TotalBytes: version.FileSize})
 	err = b.opts.Downloader.DownloadWithContext(ctx, url, archive, version.SHA256, version.FileSize, func(progress float64, speed float64) {
+		fraction := clampProgress(progress)
 		emit(callback, InstallState{
 			Status:          StatusDownloading,
 			Stage:           InstallStageDownloading,
-			Progress:        int(progress),
-			DownloadedBytes: int64(float64(version.FileSize) * progress / 100),
+			Progress:        progressPercent(fraction),
+			DownloadedBytes: int64(fraction * float64(version.FileSize)),
 			TotalBytes:      version.FileSize,
 			Speed:           int64(speed),
 			Message:         "下载运行时",
@@ -396,11 +397,17 @@ func (b *BaseRuntime) InstallModel(ctx context.Context, m catalog.Manifest, call
 		fileTotal := d.FileSize
 		start := completed
 		downloadErr := b.opts.Downloader.DownloadWithContext(ctx, d.URL, tmpPath, d.SHA256, d.FileSize, func(progress float64, speed float64) {
-			fileDone := int64(float64(fileTotal) * progress / 100)
+			fraction := clampProgress(progress)
+			fileDone := int64(fraction * float64(fileTotal))
+			done := start + fileDone
+			overall := float64(0)
+			if totalBytes > 0 {
+				overall = float64(done) / float64(totalBytes)
+			}
 			emit(callback, InstallState{
 				Status: StatusDownloading, Stage: InstallStageDownloading,
-				Progress:        int(float64(start+fileDone) / float64(totalBytes) * 90),
-				DownloadedBytes: start + fileDone, TotalBytes: totalBytes,
+				Progress:        int(clampProgress(overall) * 90),
+				DownloadedBytes: done, TotalBytes: totalBytes,
 				Speed: int64(speed), Message: "下载 " + label,
 			})
 		})
@@ -480,6 +487,26 @@ func containsFold(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// clampProgress 把下载器进度回调值归一化到 0..1（回调为小数语义）。
+func clampProgress(progress float64) float64 {
+	if progress < 0 {
+		return 0
+	}
+	if progress > 1 {
+		return 1
+	}
+	return progress
+}
+
+// progressPercent 把 0..1 小数进度转成 0..100 整数百分比。
+func progressPercent(fraction float64) int {
+	percent := int(clampProgress(fraction)*100 + 0.5)
+	if percent > 100 {
+		percent = 100
+	}
+	return percent
 }
 
 // WrapInstallDownloadErr 统一下载失败的错误码包装。

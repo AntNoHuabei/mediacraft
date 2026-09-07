@@ -259,6 +259,26 @@ func TestTCPPortOpen(t *testing.T) {
 	}
 }
 
+// ---------- 进度量纲换算（下载器回调为 0..1 小数） ----------
+
+func TestProgressMapping(t *testing.T) {
+	if clampProgress(-0.5) != 0 {
+		t.Fatal("clampProgress should floor at 0")
+	}
+	if clampProgress(1.5) != 1 {
+		t.Fatal("clampProgress should cap at 1")
+	}
+	if got := progressPercent(0); got != 0 {
+		t.Fatalf("progressPercent(0) = %d", got)
+	}
+	if got := progressPercent(0.5); got != 50 {
+		t.Fatalf("progressPercent(0.5) = %d, want 50", got)
+	}
+	if got := progressPercent(1); got != 100 {
+		t.Fatalf("progressPercent(1) = %d, want 100", got)
+	}
+}
+
 // ---------- 错误码/健康聚合 ----------
 
 func TestStartModelErrorAs(t *testing.T) {
