@@ -725,7 +725,7 @@ function ImagePage({ models }: { models: Model[] }) {
               <Input.TextArea
                 className="composer-textarea"
                 placeholder="输入 prompt，描述你想生成的画面…（Enter 生成 · Shift+Enter 换行）"
-                autoSize={{ minRows: 3, maxRows: 9 }}
+                autoSize={{ minRows: 5, maxRows: 12 }}
                 onPressEnter={(e) => {
                   if (!e.shiftKey) {
                     e.preventDefault()
@@ -873,7 +873,7 @@ function ImagePage({ models }: { models: Model[] }) {
   )
 
   return (
-    <>
+    <div className="img-page">
       <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片工作台" desc="创作与产物分页：像给 agent 下指令一样输入 prompt，画布实时出图。" />
       <div className="image-workspace">
         <Tabs
@@ -886,7 +886,7 @@ function ImagePage({ models }: { models: Model[] }) {
           ]}
         />
       </div>
-    </>
+    </div>
   )
 }
 
