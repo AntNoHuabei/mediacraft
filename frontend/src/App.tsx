@@ -410,6 +410,37 @@ const paramNum = (value: unknown): number | undefined => {
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+// 按真实宽高比画一个小的形状预览，供画幅下拉直接目测比例。
+function AspectGlyph({ width, height }: ImageSize) {
+  const scale = Math.min(26 / width, 20 / height)
+  const w = Math.max(4, Math.round(width * scale))
+  const h = Math.max(4, Math.round(height * scale))
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex',
+        width: 30,
+        flex: '0 0 auto',
+        justifyContent: 'center',
+        marginRight: 8,
+        verticalAlign: 'middle',
+      }}
+    >
+      <i
+        style={{
+          display: 'block',
+          width: w,
+          height: h,
+          borderRadius: 3,
+          backgroundColor: 'currentColor',
+          opacity: 0.78,
+        }}
+      />
+    </span>
+  )
+}
+
 function ImagePage({ models }: { models: Model[] }) {
   const imageModels = models.filter((m) => m.type === 'image-generation')
   const [image, setImage] = useState('')
@@ -502,7 +533,14 @@ function ImagePage({ models }: { models: Model[] }) {
                 options={[
                   ...ASPECT_PRESETS.map((p) => ({
                     value: p.key,
-                    label: `${p.label} · ${p.size.width} × ${p.size.height}`,
+                    label: (
+                      <span style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        <AspectGlyph width={p.size.width} height={p.size.height} />
+                        <span>
+                          {p.label} · {p.size.width} × {p.size.height}
+                        </span>
+                      </span>
+                    ),
                   })),
                   { value: 'custom', label: '自定义尺寸' },
                 ]}
