@@ -22,6 +22,7 @@ export interface ModelInfo {
     "status": string;
     "vendor": string;
     "engine": string;
+    "parameters"?: { [_ in string]?: any } | null;
 }
 
 /**

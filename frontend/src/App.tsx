@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Drawer, Form, Input, Select, Tooltip, message } from 'antd'
+import { App as AntApp, Button, Drawer, Form, Input, InputNumber, Select, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
@@ -29,6 +29,7 @@ type Model = {
   version: string
   installed: boolean
   status: string
+  parameters?: Record<string, unknown> | null
 }
 type Runtime = {
   name: string
@@ -381,19 +382,91 @@ function ModelsPage({
 
 /* ---------------- 图片处理 ---------------- */
 
+type ImageSize = { width: number; height: number }
+
+// 常用画幅预设：像素均为 64 的倍数（适配 sd.cpp 分辨率约束）。
+const ASPECT_PRESETS: { key: string; label: string; size: ImageSize }[] = [
+  { key: '1:1', label: '1:1 方形', size: { width: 1024, height: 1024 } },
+  { key: '3:2', label: '3:2 横版', size: { width: 1152, height: 768 } },
+  { key: '4:3', label: '4:3 横版', size: { width: 1024, height: 768 } },
+  { key: '16:9', label: '16:9 宽屏', size: { width: 1024, height: 576 } },
+  { key: '21:9', label: '21:9 超宽', size: { width: 1344, height: 576 } },
+  { key: '3:4', label: '3:4 竖版', size: { width: 768, height: 1024 } },
+  { key: '2:3', label: '2:3 竖版', size: { width: 768, height: 1152 } },
+  { key: '9:16', label: '9:16 长图', size: { width: 576, height: 1024 } },
+]
+
+const roundTo64 = (value: number): number => Math.max(64, Math.round(value / 64) * 64)
+
+const aspectKeyOf = (width: number, height: number): string => {
+  for (const p of ASPECT_PRESETS) {
+    if (p.size.width === width && p.size.height === height) return p.key
+  }
+  return 'custom'
+}
+
+const paramNum = (value: unknown): number | undefined => {
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
 function ImagePage({ models }: { models: Model[] }) {
   const imageModels = models.filter((m) => m.type === 'image-generation')
   const [image, setImage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [aspect, setAspect] = useState('1:1')
+  const [form] = Form.useForm()
+  const selectedModel = Form.useWatch('model', form) as string | undefined
 
-  const generate = (values: { model: string; prompt: string; width: number; height: number; steps: number }) => {
+  // 选中模型后按清单默认参数（default_width/height/steps）填充表单，
+  // 保证前端默认值与 manifest / Go 侧兜底默认保持一致。
+  useEffect(() => {
+    if (!selectedModel) return
+    const model = imageModels.find((item) => item.name === selectedModel)
+    const p = (model?.parameters ?? {}) as Record<string, unknown>
+    const width = paramNum(p.default_width)
+    const height = paramNum(p.default_height)
+    if (width && height) {
+      const w = roundTo64(width)
+      const h = roundTo64(height)
+      form.setFieldsValue({ width: w, height: h })
+      setAspect(aspectKeyOf(w, h))
+    }
+    const steps = paramNum(p.default_steps)
+    if (steps) form.setFieldsValue({ steps: Math.round(steps) })
+    // 只在切换模型时套用默认参数，不覆盖用户后续手动调整。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedModel])
+
+  const pickAspect = (key: string) => {
+    setAspect(key)
+    if (key === 'custom') return
+    const preset = ASPECT_PRESETS.find((p) => p.key === key)
+    if (preset) form.setFieldsValue({ width: preset.size.width, height: preset.size.height })
+  }
+
+  const generate = (values: {
+    model: string
+    prompt: string
+    width?: number
+    height?: number
+    steps?: number
+  }) => {
     const model = imageModels.find((item) => item.name === values.model)
     if (!model?.installed) {
       message.warning('请先在模型库安装图片模型')
       return
     }
+    const width = roundTo64(Number(values.width) || 1024)
+    const height = roundTo64(Number(values.height) || 1024)
+    const steps = Math.max(1, Math.round(Number(values.steps) || 9))
+    if (width !== Number(values.width) || height !== Number(values.height)) {
+      form.setFieldsValue({ width, height })
+      setAspect(aspectKeyOf(width, height))
+      message.info(`尺寸已对齐到 64 的倍数：${width} × ${height}`)
+    }
     setLoading(true)
-    ModelService.GenerateImage(JSON.stringify(values))
+    ModelService.GenerateImage(JSON.stringify({ model: values.model, prompt: values.prompt, width, height, steps }))
       .then((result) => {
         setImage(result)
         message.success('图片生成完成')
@@ -406,7 +479,7 @@ function ImagePage({ models }: { models: Model[] }) {
     <>
       <PageHead eyebrow="IMAGE BUS · sd.cpp" title="图片处理" desc="文生图：结果回到暗房画布回放。" />
       <section className="panel" style={{ padding: 18, maxWidth: 780 }}>
-        <Form layout="vertical" onFinish={generate}>
+        <Form layout="vertical" form={form} onFinish={generate}>
           <Form.Item label="模型" name="model" rules={[{ required: true, message: '请选择图片模型' }]}>
             <Select
               placeholder="选择已装载的图片模型"
@@ -421,14 +494,32 @@ function ImagePage({ models }: { models: Model[] }) {
             <Input.TextArea rows={5} placeholder="描述你想生成的画面" />
           </Form.Item>
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-            <Form.Item label="宽度" name="width" initialValue={1024}>
-              <Input type="number" style={{ width: 130 }} />
+            <Form.Item label="画幅" style={{ marginBottom: aspect === 'custom' ? undefined : 24 }}>
+              <Select
+                style={{ width: 230 }}
+                value={aspect}
+                onChange={pickAspect}
+                options={[
+                  ...ASPECT_PRESETS.map((p) => ({
+                    value: p.key,
+                    label: `${p.label} · ${p.size.width} × ${p.size.height}`,
+                  })),
+                  { value: 'custom', label: '自定义尺寸' },
+                ]}
+              />
             </Form.Item>
-            <Form.Item label="高度" name="height" initialValue={1024}>
-              <Input type="number" style={{ width: 130 }} />
-            </Form.Item>
+            {aspect === 'custom' ? (
+              <>
+                <Form.Item label="宽度" name="width" initialValue={1024}>
+                  <InputNumber min={64} max={2048} step={64} style={{ width: 130 }} />
+                </Form.Item>
+                <Form.Item label="高度" name="height" initialValue={1024}>
+                  <InputNumber min={64} max={2048} step={64} style={{ width: 130 }} />
+                </Form.Item>
+              </>
+            ) : null}
             <Form.Item label="步数" name="steps" initialValue={9}>
-              <Input type="number" style={{ width: 130 }} />
+              <InputNumber min={1} max={100} style={{ width: 130 }} />
             </Form.Item>
           </div>
           <Button type="primary" htmlType="submit" loading={loading} icon={<PictureOutlined />}>
@@ -540,7 +631,7 @@ function AudioPage({ models }: { models: Model[] }) {
                 <Input placeholder="例如：vivian" style={{ width: 220 }} />
               </Form.Item>
               <Form.Item label="语速" name="speed" initialValue={1}>
-                <Input type="number" style={{ width: 130 }} />
+                <InputNumber min={0.1} max={3} step={0.1} style={{ width: 130 }} />
               </Form.Item>
             </div>
             <Button type="primary" htmlType="submit" loading={loading} icon={<AudioOutlined />}>

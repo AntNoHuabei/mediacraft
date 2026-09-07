@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	goruntime "runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,18 +29,19 @@ import (
 
 // ModelInfo 模型展示信息（与前端绑定契约一致）。
 type ModelInfo struct {
-	Name         string   `json:"name"`
-	DisplayName  string   `json:"displayName"`
-	Type         string   `json:"type"`
-	Description  string   `json:"description"`
-	Capabilities []string `json:"capabilities"`
-	Tags         []string `json:"tags"`
-	Runtimes     []string `json:"runtimes"`
-	Version      string   `json:"version"`
-	Installed    bool     `json:"installed"`
-	Status       string   `json:"status"`
-	Vendor       string   `json:"vendor"`
-	Engine       string   `json:"engine"`
+	Name         string         `json:"name"`
+	DisplayName  string         `json:"displayName"`
+	Type         string         `json:"type"`
+	Description  string         `json:"description"`
+	Capabilities []string       `json:"capabilities"`
+	Tags         []string       `json:"tags"`
+	Runtimes     []string       `json:"runtimes"`
+	Version      string         `json:"version"`
+	Installed    bool           `json:"installed"`
+	Status       string         `json:"status"`
+	Vendor       string         `json:"vendor"`
+	Engine       string         `json:"engine"`
+	Parameters   map[string]any `json:"parameters,omitempty"`
 }
 
 // RuntimeInfo 运行时展示信息（与前端绑定契约一致）。
@@ -60,6 +62,105 @@ type ImageRequest struct {
 	Width  int    `json:"width"`
 	Height int    `json:"height"`
 	Steps  int    `json:"steps"`
+}
+
+// laxInt 宽容整数：接受 JSON 数字、数字字符串、空字符串或 null。
+type laxInt int
+
+func (n *laxInt) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	if s == "null" || s == `""` {
+		*n = 0
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(b, &f); err == nil {
+		*n = laxInt(f)
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		if v, perr := strconv.ParseFloat(strings.TrimSpace(str), 64); perr == nil {
+			*n = laxInt(v)
+			return nil
+		}
+	}
+	return fmt.Errorf("field is not an integer: %s", s)
+}
+
+// laxFloat 宽容小数：接受 JSON 数字、数字字符串、空字符串或 null。
+type laxFloat float64
+
+func (n *laxFloat) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	if s == "null" || s == `""` {
+		*n = 0
+		return nil
+	}
+	var f float64
+	if err := json.Unmarshal(b, &f); err == nil {
+		*n = laxFloat(f)
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		if v, perr := strconv.ParseFloat(strings.TrimSpace(str), 64); perr == nil {
+			*n = laxFloat(v)
+			return nil
+		}
+	}
+	return fmt.Errorf("field is not a number: %s", s)
+}
+
+// parseImageRequest 解析图片生成请求，前端数字字段可能以字符串或 null 形式
+// 进入（antd 输入框清空/输入时），这里统一宽容成 int。
+func parseImageRequest(request string) (ImageRequest, error) {
+	var out ImageRequest
+	if strings.TrimSpace(request) == "" {
+		return out, fmt.Errorf("request is required")
+	}
+	var lax struct {
+		Model  string `json:"model"`
+		Prompt string `json:"prompt"`
+		Width  laxInt `json:"width"`
+		Height laxInt `json:"height"`
+		Steps  laxInt `json:"steps"`
+	}
+	if err := json.Unmarshal([]byte(request), &lax); err != nil {
+		return out, fmt.Errorf("invalid image request json: %w", err)
+	}
+	out.Model = lax.Model
+	out.Prompt = lax.Prompt
+	out.Width = int(lax.Width)
+	out.Height = int(lax.Height)
+	out.Steps = int(lax.Steps)
+	return out, nil
+}
+
+// parseAudioRequest 解析音频请求 JSON（TTS 的 speed 字段宽容字符串/number/null）。
+func parseAudioRequest(request string) (AudioRequest, error) {
+	var out AudioRequest
+	if strings.TrimSpace(request) == "" {
+		return out, fmt.Errorf("request is required")
+	}
+	var lax struct {
+		Model   string   `json:"model"`
+		Text    string   `json:"text"`
+		Speaker string   `json:"speaker"`
+		Speed   laxFloat `json:"speed"`
+		Audio   string   `json:"audio"`
+		Format  string   `json:"format"`
+	}
+	if err := json.Unmarshal([]byte(request), &lax); err != nil {
+		return out, fmt.Errorf("invalid audio request json: %w", err)
+	}
+	out.Model = lax.Model
+	out.Text = lax.Text
+	out.Speaker = lax.Speaker
+	out.Speed = float64(lax.Speed)
+	out.Audio = lax.Audio
+	out.Format = lax.Format
+	return out, nil
 }
 
 type ImageResult struct {
@@ -209,6 +310,7 @@ func (s *ModelService) ListModels(filter string) ([]ModelInfo, error) {
 			Runtimes: m.RuntimeNames(), Version: m.Version,
 			Installed: installed, Status: status,
 			Vendor: xpu.Vendor, Engine: engine,
+			Parameters: m.MergedParameters(xpu),
 		})
 	}
 	return result, nil
@@ -392,8 +494,8 @@ func (s *ModelService) runningPort(name string) (int, error) {
 
 // GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img）。
 func (s *ModelService) GenerateImage(request string) (string, error) {
-	var input ImageRequest
-	if err := s.ParseRequest(request, &input); err != nil {
+	input, err := parseImageRequest(request)
+	if err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(input.Model) == "" || strings.TrimSpace(input.Prompt) == "" {
@@ -443,8 +545,8 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 
 // Transcribe audio.cpp 离线语音识别（/v1/audio/transcriptions）。
 func (s *ModelService) Transcribe(request string) (ASRResult, error) {
-	var input AudioRequest
-	if err := s.ParseRequest(request, &input); err != nil {
+	input, err := parseAudioRequest(request)
+	if err != nil {
 		return ASRResult{}, err
 	}
 	if strings.TrimSpace(input.Model) == "" || strings.TrimSpace(input.Audio) == "" {
@@ -506,8 +608,8 @@ func (s *ModelService) Transcribe(request string) (ASRResult, error) {
 
 // Synthesize audio.cpp 语音合成（/v1/audio/speech）。
 func (s *ModelService) Synthesize(request string) (string, error) {
-	var input AudioRequest
-	if err := s.ParseRequest(request, &input); err != nil {
+	input, err := parseAudioRequest(request)
+	if err != nil {
 		return "", err
 	}
 	if strings.TrimSpace(input.Model) == "" || strings.TrimSpace(input.Text) == "" {
