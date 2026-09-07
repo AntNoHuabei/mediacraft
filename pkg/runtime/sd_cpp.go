@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -81,6 +82,25 @@ func sdCppParamBool(params map[string]any, key string) bool {
 	return false
 }
 
+// sdCppParamFloat 读取数值参数（json 解码后常见 float64/int/json.Number）。
+func sdCppParamFloat(params map[string]any, key string) (float64, bool) {
+	switch value := params[key].(type) {
+	case float64:
+		return value, true
+	case int:
+		return float64(value), true
+	case int64:
+		return float64(value), true
+	case json.Number:
+		f, err := value.Float64()
+		return f, err == nil
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+		return f, err == nil
+	}
+	return 0, false
+}
+
 // buildSDCppArgs 依据模型合并参数构造 sd-server.exe 启动参数。
 //
 // 参数语义：可选模型文件（vae/llm/clip_l/clip_g/t5xxl）逐个校验存在；
@@ -150,6 +170,12 @@ func (r *SDCppRuntime) buildSDCppArgs(model ModelInfo, port int) ([]string, erro
 	}
 	if sdCppParamBool(params, "verbose") {
 		args = append(args, "--verbose")
+	}
+	// cfg_scale 必须在进程启动时下发：实测本 sd-server（commit b87fe13）
+	// 不读取请求体里的 cfg_scale（始终按缺省 7.0），而 turbo/蒸馏类模型
+	// 需要 1.0（见 sd.cpp docs/z_image.md）。启动参数会成为请求的缺省。
+	if cfg, ok := sdCppParamFloat(params, "cfg_scale"); ok && cfg > 0 {
+		args = append(args, "--cfg-scale", strconv.FormatFloat(cfg, 'f', -1, 64))
 	}
 	if value := sdCppParamString(params, "cache_mode"); value != "" {
 		args = append(args, "--cache-mode", value)

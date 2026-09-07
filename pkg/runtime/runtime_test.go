@@ -180,6 +180,7 @@ func TestSDCppBuildArgsIncludesModelAndOptionalFiles(t *testing.T) {
 			"vae", "diffusion_pytorch_model.safetensors",
 			"llm", "Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
 			"diffusion_fa", true,
+			"cfg_scale", 1.0,
 		),
 	}
 	args, err := r.buildSDCppArgs(model, 7777)
@@ -193,9 +194,28 @@ func TestSDCppBuildArgsIncludesModelAndOptionalFiles(t *testing.T) {
 		"--vae", filepath.Join(dir, "diffusion_pytorch_model.safetensors"),
 		"--llm", filepath.Join(dir, "Qwen3-4B-Instruct-2507-Q4_K_M.gguf"),
 		"--diffusion-fa",
+		"--cfg-scale", "1",
 	} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("args missing %q:\n%s", want, joined)
+		}
+	}
+}
+
+func TestSDCppBuildArgsSkipsCfgScaleWhenAbsent(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "m.gguf"), []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	r := NewSDCppRuntime(catalog.Runtime{}, nil, BaseOptions{})
+	model := ModelInfo{Name: "m", InstallPath: dir, Parameters: modelParams("diffusion_model", "m.gguf")}
+	args, err := r.buildSDCppArgs(model, 1)
+	if err != nil {
+		t.Fatalf("build args: %v", err)
+	}
+	for _, arg := range args {
+		if arg == "--cfg-scale" {
+			t.Fatalf("--cfg-scale should not be passed without manifest cfg_scale: %v", args)
 		}
 	}
 }
