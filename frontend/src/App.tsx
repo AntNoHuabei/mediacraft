@@ -484,6 +484,7 @@ function ImagePage({ models }: { models: Model[] }) {
   const [advanced, setAdvanced] = useState(false)
   const [view, setView] = useState<'canvas' | 'recent'>('recent')
   const [genProg, setGenProg] = useState<{ percent: number; phase: string; message: string } | null>(null)
+  const [genStalled, setGenStalled] = useState(false)
   const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
   const [outputs, setOutputs] = useState<ImageOutput[]>([])
@@ -501,6 +502,16 @@ function ImagePage({ models }: { models: Model[] }) {
     void loadOutputs()
   }, [loadOutputs])
 
+  // 事件长时间未到达时的兜底提示（进度未知 ≠ 0）。
+  useEffect(() => {
+    if (!loading) {
+      setGenStalled(false)
+      return
+    }
+    const timer = setTimeout(() => setGenStalled(true), 1200)
+    return () => clearTimeout(timer)
+  }, [loading, genProg])
+
   // 生成进度（后端解析 sd-server stdout → mc:gen 事件）。
   useEffect(() => {
     return Events.On('mc:gen', (payload) => {
@@ -510,6 +521,7 @@ function ImagePage({ models }: { models: Model[] }) {
         setGenProg(null)
         return
       }
+      setGenStalled(false)
       setGenProg({
         percent: Math.max(0, Math.min(100, Number(d.percent) || 0)),
         phase: d.phase ?? '',
@@ -711,12 +723,14 @@ function ImagePage({ models }: { models: Model[] }) {
               <p className="dim">出图自动存档，可在「产物」页签回看全部</p>
             </div>
           )}
-          {loading && genProg && (
+          {(loading && (genProg || genStalled)) && (
             <div className="gen-bar">
-              <div className="gen-bar-inner" style={{ width: `${genProg.percent}%` }} />
-              <span>
-                {genProg.message} · {genProg.percent}%
-              </span>
+              {genProg ? (
+                <div className="gen-bar-inner" style={{ width: `${genProg.percent}%` }} />
+              ) : (
+                <div className="gen-bar-inner indet" />
+              )}
+              <span>{genProg ? `${genProg.message} · ${genProg.percent}%` : '生成中，等待引擎回报进度…'}</span>
             </div>
           )}
         </div>

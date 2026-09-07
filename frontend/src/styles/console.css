@@ -748,3 +748,6 @@ button.chip {
 .gen-bar-inner { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent), var(--image)); opacity: 0.85; transition: width 0.3s ease; }
 .gen-bar span { position: relative; z-index: 1; white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); }
 .gen-pct { font-size: 15px; color: var(--accent); }
+
+.gen-bar-inner.indet { width: 34%; animation: gen-indet 1.2s ease-in-out infinite; }
+@keyframes gen-indet { 0% { transform: translateX(-160%); } 100% { transform: translateX(340%); } }
