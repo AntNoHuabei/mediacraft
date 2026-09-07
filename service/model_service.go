@@ -492,6 +492,85 @@ func (s *ModelService) runningPort(name string) (int, error) {
 	return 0, fmt.Errorf("model %q did not report a running port", name)
 }
 
+// modelParameters 按当前平台/厂商返回模型合并参数（manifest 顶层 + xpu 覆盖）。
+func (s *ModelService) modelParameters(name string) map[string]any {
+	for i := range s.catalog.Models {
+		m := &s.catalog.Models[i]
+		if m.Name != name {
+			continue
+		}
+		_, xpu := m.MatchPlatform(goruntime.GOOS, goruntime.GOARCH, s.vendorName())
+		if xpu == nil {
+			_, xpu = m.MatchPlatform(goruntime.GOOS, goruntime.GOARCH, "all")
+		}
+		return m.MergedParameters(xpu)
+	}
+	return nil
+}
+
+// paramNumber 读取合并参数中的数值（json 解码后常见 float64/int/json.Number）。
+func paramNumber(params map[string]any, key string) (float64, bool) {
+	if params == nil {
+		return 0, false
+	}
+	switch v := params[key].(type) {
+	case float64:
+		return v, true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case json.Number:
+		f, err := v.Float64()
+		return f, err == nil
+	case string:
+		f, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return f, err == nil
+	}
+	return 0, false
+}
+
+func paramInt(params map[string]any, key string, fallback int) int {
+	if v, ok := paramNumber(params, key); ok && v > 0 && v == float64(int64(v)) {
+		return int(v)
+	}
+	return fallback
+}
+
+// buildImageRequestBody 组装 sd-server /sdapi/v1/txt2img 请求体。
+//
+// 关键：cfg_scale 必须显式下发。sd-server 缺省 cfg≈7.0，而
+// Z-Image-Turbo 这类蒸馏/低引导模型要求 cfg=1.0（见 sd.cpp docs/z_image.md：
+// turbo 示例 --cfg-scale 1.0 --steps 8），按缺省 7.0 生成会糊、过饱和、色彩发脏。
+// 采样器不显式指定，沿用 sd-server 默认（与官方 sd-cli 示例一致）。
+func buildImageRequestBody(in ImageRequest, params map[string]any) map[string]any {
+	width := in.Width
+	if width <= 0 {
+		width = paramInt(params, "default_width", 1024)
+	}
+	height := in.Height
+	if height <= 0 {
+		height = paramInt(params, "default_height", 1024)
+	}
+	steps := in.Steps
+	if steps <= 0 {
+		steps = paramInt(params, "default_steps", 9)
+	}
+	body := map[string]any{
+		"prompt":          in.Prompt,
+		"negative_prompt": "",
+		"width":           width,
+		"height":          height,
+		"steps":           steps,
+		"seed":            int64(-1),
+		"batch_size":      1,
+	}
+	if cfg, ok := paramNumber(params, "cfg_scale"); ok && cfg > 0 {
+		body["cfg_scale"] = cfg
+	}
+	return body
+}
+
 // GenerateImage sd.cpp 文生图（/sdapi/v1/txt2img）。
 func (s *ModelService) GenerateImage(request string) (string, error) {
 	input, err := parseImageRequest(request)
@@ -501,20 +580,12 @@ func (s *ModelService) GenerateImage(request string) (string, error) {
 	if strings.TrimSpace(input.Model) == "" || strings.TrimSpace(input.Prompt) == "" {
 		return "", fmt.Errorf("model and prompt are required")
 	}
-	if input.Width <= 0 {
-		input.Width = 1024
-	}
-	if input.Height <= 0 {
-		input.Height = 1024
-	}
-	if input.Steps <= 0 {
-		input.Steps = 9
-	}
 	port, err := s.runningPort(input.Model)
 	if err != nil {
 		return "", err
 	}
-	body, _ := json.Marshal(map[string]any{"prompt": input.Prompt, "width": input.Width, "height": input.Height, "steps": input.Steps})
+	params := s.modelParameters(input.Model)
+	body, _ := json.Marshal(buildImageRequestBody(input, params))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://127.0.0.1:%d/sdapi/v1/txt2img", port), bytes.NewReader(body))

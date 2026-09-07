@@ -54,3 +54,58 @@ func TestParseAudioRequestSpeed(t *testing.T) {
 		t.Fatalf("unexpected speed: %v", in2.Speed)
 	}
 }
+
+func TestBuildImageRequestBodyTurboDefaults(t *testing.T) {
+	// zimage-turbo 合并参数：cfg_scale=1.0、default_steps=8（sd.cpp 官方 turbo 值）。
+	params := map[string]any{
+		"cfg_scale":      1.0,
+		"default_width":  float64(1024),
+		"default_height": float64(1024),
+		"default_steps":  float64(8),
+	}
+	body := buildImageRequestBody(ImageRequest{Model: "zimage-turbo", Prompt: "a cat"}, params)
+	if body["cfg_scale"] != 1.0 {
+		t.Fatalf("cfg_scale missing or wrong: %#v", body["cfg_scale"])
+	}
+	if body["steps"] != 8 {
+		t.Fatalf("expected default steps 8, got %#v", body["steps"])
+	}
+	if body["width"] != 1024 || body["height"] != 1024 {
+		t.Fatalf("unexpected size: %#v %#v", body["width"], body["height"])
+	}
+	if body["seed"] != int64(-1) || body["batch_size"] != 1 {
+		t.Fatalf("unexpected seed/batch: %#v", body)
+	}
+	if np, ok := body["negative_prompt"].(string); !ok || np != "" {
+		t.Fatalf("unexpected negative_prompt: %#v", body["negative_prompt"])
+	}
+}
+
+func TestBuildImageRequestBodyExplicitStepsAndNoCfg(t *testing.T) {
+	// 无 cfg_scale 参数时不下发该字段，交由 sd-server 默认；用户显式 steps 优先。
+	body := buildImageRequestBody(ImageRequest{Model: "m", Prompt: "p", Width: 512, Height: 512, Steps: 20}, nil)
+	if _, ok := body["cfg_scale"]; ok {
+		t.Fatalf("cfg_scale should be omitted without manifest value: %#v", body)
+	}
+	if body["steps"] != 20 {
+		t.Fatalf("explicit steps should win, got %#v", body["steps"])
+	}
+	if body["width"] != 512 {
+		t.Fatalf("unexpected width: %#v", body["width"])
+	}
+}
+
+func TestParamNumber(t *testing.T) {
+	if v, ok := paramNumber(map[string]any{"a": "1.5"}, "a"); !ok || v != 1.5 {
+		t.Fatalf("string number: %v %v", v, ok)
+	}
+	if v, ok := paramNumber(map[string]any{"a": 9}, "a"); !ok || v != 9 {
+		t.Fatalf("int: %v %v", v, ok)
+	}
+	if paramInt(map[string]any{"a": 8.0}, "a", 9) != 8 {
+		t.Fatal("paramInt should read 8")
+	}
+	if paramInt(map[string]any{"a": 0.5}, "a", 9) != 9 {
+		t.Fatal("non-integer should fall back")
+	}
+}
