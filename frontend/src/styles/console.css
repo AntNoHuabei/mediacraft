@@ -104,8 +104,16 @@ body {
 
 /* ============ 控制台骨架 ============ */
 
-.console {
+.window-root {
   height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg0);
+}
+
+.console {
+  flex: 1;
+  min-height: 0;
   display: flex;
   background: var(--bg0);
 }

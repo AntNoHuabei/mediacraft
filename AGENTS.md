@@ -9,7 +9,7 @@
 的 server 二进制当作"运行时"统一托管（安装/启停/健康/按需起模型进程），
 并在此基础上做音频（TTS/ASR）、图像生成，规划覆盖视频。
 
-- Go module：`github.com/AntNoHuabei/mediacraft`（曾用名 sdcpp_desktop，已整体改名）
+- Go module：`github.com/AntNoHuabei/mediacraft`
 - License：MIT（仓库根 `LICENSE`，Copyright (c) 2026 AntNoHuabei）
 - 开发交流群（QQ）：`488797113`（位置见 §6）
 - 远端：`git@github.com:AntNoHuabei/mediacraft.git`；本地主分支 `main`
