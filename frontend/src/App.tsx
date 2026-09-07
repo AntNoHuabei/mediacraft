@@ -484,7 +484,6 @@ function ImagePage({ models }: { models: Model[] }) {
   const [advanced, setAdvanced] = useState(false)
   const [view, setView] = useState<'canvas' | 'recent'>('recent')
   const [genProg, setGenProg] = useState<{ percent: number; phase: string; message: string } | null>(null)
-  const [genStalled, setGenStalled] = useState(false)
   const [tab, setTab] = useState<'create' | 'outputs'>('create')
   const [allMode, setAllMode] = useState(false)
   const [outputs, setOutputs] = useState<ImageOutput[]>([])
@@ -502,33 +501,7 @@ function ImagePage({ models }: { models: Model[] }) {
     void loadOutputs()
   }, [loadOutputs])
 
-  // 事件长时间未到达时的兜底提示（进度未知 ≠ 0）。
-  useEffect(() => {
-    if (!loading) {
-      setGenStalled(false)
-      return
-    }
-    const timer = setTimeout(() => setGenStalled(true), 1200)
-    return () => clearTimeout(timer)
-  }, [loading, genProg])
 
-  // 生成进度（后端解析 sd-server stdout → mc:gen 事件）。
-  useEffect(() => {
-    return Events.On('mc:gen', (payload) => {
-      const d = payload as { status?: string; percent?: number; phase?: string; message?: string }
-      if (!d) return
-      if (d.status === 'done' || d.status === 'error') {
-        setGenProg(null)
-        return
-      }
-      setGenStalled(false)
-      setGenProg({
-        percent: Math.max(0, Math.min(100, Number(d.percent) || 0)),
-        phase: d.phase ?? '',
-        message: d.message ?? '',
-      })
-    })
-  }, [])
 
   // 选中模型后按清单默认参数（default_width/height/steps）填充表单。
   useEffect(() => {
@@ -593,11 +566,11 @@ function ImagePage({ models }: { models: Model[] }) {
       ModelService.GenerationProgress(values.model)
         .then((s) => {
           if (s && s.available && Number(s.percent) > 0) {
-            setGenProg({
-              percent: Math.max(0, Math.min(100, Number(s.percent) || 0)),
-              phase: s.phase ?? '',
-              message: s.message ?? '',
-            })
+            const percent = Math.max(0, Math.min(100, Number(s.percent) || 0))
+            const message = s.message ?? ''
+            setGenProg((prev) =>
+              prev && prev.percent === percent && prev.message === message ? prev : { percent, phase: s.phase ?? '', message },
+            )
           }
         })
         .catch(() => undefined)
@@ -738,14 +711,14 @@ function ImagePage({ models }: { models: Model[] }) {
               <p className="dim">出图自动存档，可在「产物」页签回看全部</p>
             </div>
           )}
-          {(loading && (genProg || genStalled)) && (
+          {loading && (
             <div className="gen-bar">
               {genProg ? (
                 <div className="gen-bar-inner" style={{ width: `${genProg.percent}%` }} />
               ) : (
                 <div className="gen-bar-inner indet" />
               )}
-              <span>{genProg ? `${genProg.message} · ${genProg.percent}%` : '生成中，等待引擎回报进度…'}</span>
+              <span>{genProg ? `${genProg.message} · ${genProg.percent}%` : '生成中…'}</span>
             </div>
           )}
         </div>
