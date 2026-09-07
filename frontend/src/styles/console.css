@@ -1,6 +1,6 @@
 /* ============================================================
-   MediaCraft Studio — Mix Console 设计令牌与全局样式
-   深/浅双主题通过 html[data-theme] 切换（与 src/theme.tsx 同步）
+   MediaCraft Studio 鈥?Mix Console 璁捐浠ょ墝涓庡叏灞€鏍峰紡
+   娣?娴呭弻涓婚閫氳繃 html[data-theme] 鍒囨崲锛堜笌 src/theme.tsx 鍚屾锛?
    ============================================================ */
 
 :root,
@@ -14,7 +14,7 @@
   --text: #e9ebef;
   --text-dim: #98a3b2;
   --text-faint: #67707f;
-  --accent: #3fe6a4; /* VU 绿 */
+  --accent: #3fe6a4; /* VU 缁?*/
   --accent-dim: #24b37c;
   --warn: #ffc857;
   --danger: #ff6b6b;
@@ -81,7 +81,7 @@ body {
   font-family: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, 'Courier New', monospace;
 }
 
-/* 灯：run/error/off 三态 */
+/* 鐏細run/error/off 涓夋€?*/
 .lamp {
   display: inline-block;
   width: 9px;
@@ -102,7 +102,7 @@ body {
   background: var(--warn);
 }
 
-/* ============ 控制台骨架 ============ */
+/* ============ 鎺у埗鍙伴鏋?============ */
 
 .window-root {
   height: 100vh;
@@ -189,15 +189,6 @@ body {
   background: var(--accent);
 }
 
-.rail-bus {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  width: 100%;
-}
 
 .console-main {
   flex: 1;
@@ -289,7 +280,7 @@ body {
   flex: 1;
 }
 
-/* ============ 页面头 ============ */
+/* ============ 椤甸潰澶?============ */
 
 .page-head {
   display: flex;
@@ -326,7 +317,7 @@ body {
   font-size: 13px;
 }
 
-/* ============ 面板 ============ */
+/* ============ 闈㈡澘 ============ */
 
 .panel {
   background: var(--bg1);
@@ -334,7 +325,7 @@ body {
   border-radius: 12px;
 }
 
-/* ============ 母线段（运行时） ============ */
+/* ============ 姣嶇嚎娈碉紙杩愯鏃讹級 ============ */
 
 .bus-grid {
   display: grid;
@@ -382,7 +373,7 @@ body {
   line-height: 1.5;
 }
 
-/* ============ 轨道表（模型） ============ */
+/* ============ 杞ㄩ亾琛紙妯″瀷锛?============ */
 
 .track-head,
 .track-row {
@@ -521,7 +512,7 @@ body {
 }
 
 
-/* ============ 安装进度（VU 电平条） ============ */
+/* ============ 瀹夎杩涘害锛圴U 鐢靛钩鏉★級 ============ */
 
 .install-line {
   display: flex;
@@ -562,7 +553,7 @@ body {
 }
 
 
-/* QQ 交流群 chip（可点击复制） */
+/* QQ 浜ゆ祦缇?chip锛堝彲鐐瑰嚮澶嶅埗锛?*/
 button.chip {
   font: inherit;
   cursor: pointer;
@@ -577,7 +568,7 @@ button.chip {
   color: var(--bg0);
 }
 
-/* ============ 自定义标题栏（无边框窗口） ============ */
+/* ============ 鑷畾涔夋爣棰樻爮锛堟棤杈规绐楀彛锛?============ */
 
 .titlebar {
   height: 42px;

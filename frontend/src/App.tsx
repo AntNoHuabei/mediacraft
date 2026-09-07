@@ -719,17 +719,6 @@ function AppContent() {
             </Tooltip>
           ))}
         </nav>
-        <div className="rail-bus">
-          {runtimes.map((runtime) => (
-            <Tooltip
-              key={runtime.name}
-              title={`${runtime.name} · ${runtime.installed ? '已挂载' : '未挂载'}`}
-              placement="right"
-            >
-              <span className={`lamp ${runtime.installed ? 'on' : ''}`} />
-            </Tooltip>
-          ))}
-        </div>
         <div className="rail-actions">
           <Tooltip title={theme === 'dark' ? '切换浅色主题' : '切换深色主题'} placement="right">
             <button className="rail-btn" onClick={toggle} aria-label="主题">
