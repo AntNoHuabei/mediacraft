@@ -1,0 +1,510 @@
+/* ============================================================
+   MediaCraft Studio — Mix Console 设计令牌与全局样式
+   深/浅双主题通过 html[data-theme] 切换（与 src/theme.tsx 同步）
+   ============================================================ */
+
+:root,
+:root[data-theme='dark'] {
+  --bg0: #0b0c10;
+  --bg1: #101218;
+  --bg2: #171a22;
+  --bg3: #1f232e;
+  --line: #272d39;
+  --line-soft: #1e222b;
+  --text: #e9ebef;
+  --text-dim: #98a3b2;
+  --text-faint: #67707f;
+  --accent: #3fe6a4; /* VU 绿 */
+  --accent-dim: #24b37c;
+  --warn: #ffc857;
+  --danger: #ff6b6b;
+  --image: #5aa2ff;
+  --audio: #b18cff;
+  --video: #ffb65c;
+  --glow-accent: 0 0 0 0 rgba(63, 230, 164, 0);
+}
+
+:root[data-theme='light'] {
+  --bg0: #f6f5f1;
+  --bg1: #ffffff;
+  --bg2: #f1efe9;
+  --bg3: #eae7de;
+  --line: #e2dfd6;
+  --line-soft: #efede6;
+  --text: #23221e;
+  --text-dim: #6e6a60;
+  --text-faint: #a39e92;
+  --accent: #0e9f6e;
+  --accent-dim: #0c815a;
+  --warn: #b9781d;
+  --danger: #d04545;
+  --image: #2f7de1;
+  --audio: #7a5dd8;
+  --video: #c07a22;
+  --glow-accent: 0 0 0 0 rgba(0, 0, 0, 0);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg0);
+  color: var(--text);
+  font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg3);
+  border-radius: 8px;
+  border: 2px solid var(--bg0);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'SF Mono', Consolas, 'Courier New', monospace;
+}
+
+/* 灯：run/error/off 三态 */
+.lamp {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex: none;
+}
+.lamp.on {
+  background: var(--accent);
+  box-shadow: 0 0 6px 1px rgba(63, 230, 164, 0.55);
+}
+.lamp.err {
+  background: var(--danger);
+  box-shadow: 0 0 6px 1px rgba(255, 107, 107, 0.5);
+}
+.lamp.warn {
+  background: var(--warn);
+}
+
+/* ============ 控制台骨架 ============ */
+
+.console {
+  height: 100vh;
+  display: flex;
+  background: var(--bg0);
+}
+
+.console-rail {
+  width: 62px;
+  flex: none;
+  background: var(--bg1);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  gap: 8px;
+}
+
+.rail-brand {
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: -0.5px;
+  user-select: none;
+}
+
+.rail-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  width: 100%;
+}
+
+.rail-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 19px;
+  position: relative;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rail-btn:hover {
+  background: var(--bg2);
+  color: var(--text);
+}
+.rail-btn.active {
+  background: var(--bg2);
+  color: var(--accent);
+}
+.rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -9px;
+  width: 3px;
+  height: 22px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.rail-bus {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  width: 100%;
+}
+
+.console-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-top {
+  height: 54px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--bg1);
+}
+
+.top-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 26px;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  border-radius: 999px;
+  padding: 0 11px;
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  color: var(--text-dim);
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.icon-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent-dim);
+}
+
+.stage {
+  flex: 1;
+  overflow: auto;
+  padding: 20px 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.transport {
+  height: 56px;
+  flex: none;
+  border-top: 1px solid var(--line);
+  background: var(--bg1);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+}
+
+.transport-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.transport-spacer {
+  flex: 1;
+}
+
+/* ============ 页面头 ============ */
+
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.page-head-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.eyebrow {
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 11px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.page-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.page-desc {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+/* ============ 面板 ============ */
+
+.panel {
+  background: var(--bg1);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+/* ============ 母线段（运行时） ============ */
+
+.bus-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.bus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.bus-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bus-name {
+  font-family: 'JetBrains Mono', 'Cascadia Code', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.bus-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bus-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bus-desc {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ============ 轨道表（模型） ============ */
+
+.track-head,
+.track-row {
+  display: grid;
+  grid-template-columns: 52px minmax(180px, 1.4fr) minmax(160px, 1fr) 84px 120px 120px;
+  column-gap: 12px;
+  align-items: center;
+}
+
+.track-head {
+  height: 32px;
+  padding: 0 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.track-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.track-row {
+  min-height: 58px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background 0.1s ease;
+}
+.track-row:last-child {
+  border-bottom: none;
+}
+.track-row:hover {
+  background: var(--bg2);
+}
+
+.track-no {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.track-name {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.track-name b {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.track-name span {
+  font-size: 12px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.accent-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--text-faint);
+}
+.accent-dot.image { background: var(--image); }
+.accent-dot.audio { background: var(--audio); }
+.accent-dot.video { background: var(--video); }
+
+.tag-mini {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg2);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.tag-mini.filled { color: var(--accent); border-color: var(--accent-dim); }
+
+.row-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.stage-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.canvas {
+  width: 100%;
+  border-radius: 10px;
+  display: block;
+  background: var(--bg0);
+}
+
+.empty-console {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-faint);
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+.empty-console .big {
+  font-size: 34px;
+  color: var(--text-faint);
+}
+
+@media (max-width: 1100px) {
+  .track-head,
+  .track-row {
+    grid-template-columns: 44px minmax(150px, 1.3fr) minmax(120px, 1fr) 84px 96px 108px;
+  }
+}
