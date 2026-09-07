@@ -565,3 +565,78 @@ button.chip {
   background: var(--accent);
   color: var(--bg0);
 }
+
+/* ============ 自定义标题栏（无边框窗口） ============ */
+
+.titlebar {
+  height: 42px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 14px;
+  background: var(--bg1);
+  border-bottom: 1px solid var(--line);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 1.6px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-self: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.win-btn {
+  width: 46px;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: default;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.win-btn:hover {
+  background: var(--bg2);
+  color: var(--text);
+}
+.win-close:hover {
+  background: #e81123;
+  color: #fff;
+}
+
+.rail-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  padding: 10px 0 6px;
+  width: 100%;
+  border-top: 1px solid var(--line);
+}
+
+.setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+}

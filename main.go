@@ -59,9 +59,17 @@ func main() {
 	// 'URL' is the URL that will be loaded into the webview.
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title: "MediaCraft Studio",
+		// 去掉 Windows 原生标题栏，由前端自绘标题栏（窗体按钮/拖动）。
+		Frameless: true,
 		// Window sized to the golden ratio (1000 / 618 ≈ 1.618).
 		Width:  1000,
 		Height: 618,
+		Windows: application.WindowsWindow{
+			// 启用 WebView2 原生非客户区支持，使前端 app-region: drag 标题栏
+			// 具备原生命中测试（拖动/缩放/阴影均可用）。
+			NonClientRegionSupport: true,
+			Theme:                  application.SystemDefault,
+		},
 		Mac: application.MacWindow{
 			InvisibleTitleBarHeight: 50,
 			Backdrop:                application.MacBackdropTranslucent,

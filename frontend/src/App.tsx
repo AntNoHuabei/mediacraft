@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { App as AntApp, Button, Form, Input, Select, Tooltip, message } from 'antd'
+import { App as AntApp, Button, Drawer, Form, Input, Select, Tooltip, message } from 'antd'
 import {
   AppstoreOutlined,
   AudioOutlined,
@@ -7,13 +7,16 @@ import {
   MoonOutlined,
   PictureOutlined,
   ReloadOutlined,
+  SettingOutlined,
   StopOutlined,
   SunOutlined,
   VideoCameraOutlined,
 } from '@ant-design/icons'
 import { ModelService } from '../bindings/github.com/AntNoHuabei/mediacraft/service'
-import { Events } from '@wailsio/runtime'
+import { Events, Window } from '@wailsio/runtime'
 import { useTheme } from './theme'
+
+const APP_VERSION = '0.1.0'
 
 type Model = {
   name: string
@@ -119,6 +122,67 @@ function PageHead({ eyebrow, title, desc, extra }: { eyebrow: string; title: str
         {desc && <p className="page-desc">{desc}</p>}
       </div>
       {extra}
+    </header>
+  )
+}
+
+/* ---------------- 自定义标题栏（无边框窗口） ---------------- */
+
+const win = (fn: () => Promise<void>) => {
+  try {
+    fn().catch(() => {
+      /* 浏览器预览等无窗口环境下静默 */
+    })
+  } catch {
+    /* ignore */
+  }
+}
+
+function TitleBar() {
+  const [maximized, setMaximized] = useState(false)
+  const minimise = () => win(() => Window.Minimise())
+  const toggleMax = () =>
+    win(() =>
+      Window.ToggleMaximise().then(async () => {
+        try {
+          setMaximized(await Window.IsMaximised())
+        } catch {
+          /* ignore */
+        }
+      }),
+    )
+  const close = () => win(() => Window.Close())
+
+  return (
+    <header className="titlebar" onDoubleClick={toggleMax}>
+      <div className="titlebar-title mono">
+        <span className="lamp on" />
+        MediaCraft Studio
+      </div>
+      <div className="titlebar-controls">
+        <button className="win-btn" onClick={minimise} aria-label="最小化" title="最小化">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M0 4.5h10v1H0z" fill="currentColor" />
+          </svg>
+        </button>
+        <button className="win-btn" onClick={toggleMax} aria-label={maximized ? '还原' : '最大化'} title={maximized ? '还原' : '最大化'}>
+          {maximized ? (
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+              <path d="M2.5 2.5V0h7.5v7.5h-2.5" fill="none" stroke="currentColor" />
+              <rect x="0" y="2.5" width="7.5" height="7.5" fill="none" stroke="currentColor" />
+            </svg>
+          ) : (
+            <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+              <rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" />
+            </svg>
+          )}
+        </button>
+        <button className="win-btn win-close" onClick={close} aria-label="关闭" title="关闭">
+          <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+            <path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" strokeWidth="1.2" />
+          </svg>
+        </button>
+      </div>
     </header>
   )
 }
@@ -550,6 +614,7 @@ function AppContent() {
   const [runtimes, setRuntimes] = useState<Runtime[]>([])
   const [installs, setInstalls] = useState<Record<string, InstallInfo>>({})
   const [active, setActive] = useState<PageKey>('models')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const refresh = () => {
     ModelService.ListModels('all')
@@ -636,7 +701,9 @@ function AppContent() {
   const pageTitle: Record<PageKey, string> = { models: '模型库', image: '图片处理', audio: '音频处理', video: '视频处理' }
 
   return (
-    <div className="console">
+    <div className="window-root">
+      <TitleBar />
+      <div className="console">
       <aside className="console-rail">
         <div className="rail-brand">MC</div>
         <nav className="rail-nav">
@@ -663,6 +730,18 @@ function AppContent() {
             </Tooltip>
           ))}
         </div>
+        <div className="rail-actions">
+          <Tooltip title={theme === 'dark' ? '切换浅色主题' : '切换深色主题'} placement="right">
+            <button className="rail-btn" onClick={toggle} aria-label="主题">
+              {theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
+            </button>
+          </Tooltip>
+          <Tooltip title="设置" placement="right">
+            <button className="rail-btn" onClick={() => setSettingsOpen(true)} aria-label="设置">
+              <SettingOutlined />
+            </button>
+          </Tooltip>
+        </div>
       </aside>
 
       <section className="console-main">
@@ -680,14 +759,6 @@ function AppContent() {
           ))}
           <button className="icon-btn" onClick={refresh} title="刷新" aria-label="刷新">
             <ReloadOutlined />
-          </button>
-          <button
-            className="icon-btn"
-            onClick={toggle}
-            title={theme === 'dark' ? '切换浅色主题' : '切换深色主题'}
-            aria-label="主题"
-          >
-            {theme === 'dark' ? <SunOutlined /> : <MoonOutlined />}
           </button>
         </header>
 
@@ -709,7 +780,7 @@ function AppContent() {
             全部停止
           </Button>
           <div className="transport-spacer" />
-          <span className="chip mono">MediaCraft Studio</span>
+          <span className="chip mono">MediaCraft Studio · v{APP_VERSION}</span>
           <button type="button" className="chip chip-link mono" onClick={copyQQGroup} title="复制群号，去 QQ 添加">
             QQ 交流群 {QQ_GROUP}
           </button>
@@ -717,7 +788,44 @@ function AppContent() {
             audio.cpp · sd.cpp
           </span>
         </footer>
-      </section>
+        </section>
+      </div>
+      <Drawer title="设置" placement="right" width={320} open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <div className="setting-group">
+          <div className="eyebrow">外观</div>
+          <div className="setting-row">
+            <span>主题</span>
+            <Button size="small" onClick={toggle}>
+              {theme === 'dark' ? '切换到浅色' : '切换到深色'}
+            </Button>
+          </div>
+        </div>
+        <div className="setting-group">
+          <div className="eyebrow">关于</div>
+          <div className="setting-row">
+            <span>名称</span>
+            <span>MediaCraft Studio</span>
+          </div>
+          <div className="setting-row">
+            <span>版本</span>
+            <span className="mono">v{APP_VERSION}</span>
+          </div>
+          <div className="setting-row">
+            <span>引擎</span>
+            <span className="mono">audio.cpp · sd.cpp</span>
+          </div>
+          <div className="setting-row">
+            <span>数据目录</span>
+            <span className="mono">…\mediacraft</span>
+          </div>
+          <div className="setting-row">
+            <span>开发交流群</span>
+            <Button size="small" onClick={copyQQGroup}>
+              复制群号 {QQ_GROUP}
+            </Button>
+          </div>
+        </div>
+      </Drawer>
     </div>
   )
 }
